@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+			 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+			 xmlns:vm="using:Mirror.ViewModels"
+			 xmlns:view="using:Mirror.Views"
+			 x:Class="Mirror.Views.ContextPage"
+			 x:DataType="vm:ContextViewModel">
+
+	<Grid>
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="*"/>
+		</Grid.RowDefinitions>
+
+		<Grid Grid.Row="0">
+			<Border Background="{DynamicResource SystemControlBackgroundBaseLowBrush}" IsHitTestVisible="False" />
+			<DockPanel Margin="20, 60, 20, 0">
+				<!-- Back button -->
+				<Button  Background="Transparent" FontSize="24" ToolTip.Tip="Back to Dashboard"
+						 Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).NavigateBackCommand}"
+						 VerticalAlignment="Center" Width="70" Height="70" CornerRadius="35" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+						 Margin="10">
+					<PathIcon Data="M21.6062 5.85517C23.0048 4.71494 24.9952 4.71494 26.3938 5.85517L39.5688 16.5966C40.4736 17.3342 41 18.4492 41 19.628V39.1134C41 41.2599 39.2875 43 37.175 43H32.075C29.9625 43 28.25 41.2599 28.25 39.1134V29.7492C28.25 29.0337 27.6792 28.4536 26.975 28.4536H21.025C20.3208 28.4536 19.75 29.0337 19.75 29.7492V39.1134C19.75 41.2599 18.0375 43 15.925 43H10.825C8.71251 43 7 41.2599 7 39.1134V19.628C7 18.4493 7.52645 17.3342 8.43124 16.5966L21.6062 5.85517ZM24.7979 7.87612C24.3317 7.49604 23.6683 7.49604 23.2021 7.87612L10.0271 18.6175C9.72548 18.8634 9.55 19.2351 9.55 19.628V39.1134C9.55 39.8289 10.1208 40.4089 10.825 40.4089H15.925C16.6292 40.4089 17.2 39.8289 17.2 39.1134V29.7492C17.2 27.6027 18.9125 25.8626 21.025 25.8626H26.975C29.0875 25.8626 30.8 27.6027 30.8 29.7492V39.1134C30.8 39.8289 31.3708 40.4089 32.075 40.4089H37.175C37.8792 40.4089 38.45 39.8289 38.45 39.1134V19.628C38.45 19.2351 38.2745 18.8634 37.9729 18.6175L24.7979 7.87612Z" />
+				</Button>
+
+				<Border CornerRadius="16" VerticalAlignment="Center">
+					<StackPanel HorizontalAlignment="Stretch">
+						<DockPanel Margin="10" LastChildFill="True">
+							<Button DockPanel.Dock="Left" Margin="0,0,10,0" ToolTip.Tip="Back" Width="32" Height="32" Background="Transparent" CornerRadius="16">
+								<PathIcon Width="12" Height="12" Data="M12.7347,4.20949 C13.0332,3.92233 13.508,3.93153 13.7952,4.23005 C14.0823,4.52857 14.0731,5.00335 13.7746,5.29051 L5.50039,13.25 L24.2532,13.25 C24.6674,13.25 25.0032,13.5858 25.0032,13.9999982 C25.0032,14.4142 24.6674,14.75 24.2532,14.75 L5.50137,14.75 L13.7746,22.7085 C14.0731,22.9957 14.0823,23.4705 13.7952,23.769 C13.508,24.0675 13.0332,24.0767 12.7347,23.7896 L3.30673,14.7202 C2.89776,14.3268 2.89776,13.6723 3.30673,13.2788 L12.7347,4.20949 Z" />
+							</Button>
+							<Button DockPanel.Dock="Left" Margin="0,0,10,0" ToolTip.Tip="Forward" Width="32" Height="32" Background="Transparent" CornerRadius="16">
+								<PathIcon Width="12" Height="12" Data="M15.2685,4.20949 C14.97,3.92233 14.4952,3.93153 14.208,4.23005 C13.9209,4.52857 13.9301,5.00335 14.2286,5.29051 L22.5028,13.25 L3.75,13.25 C3.33579,13.25 3,13.5858 3,13.9999982 C3,14.4142 3.33579,14.75 3.75,14.75 L22.5018,14.75 L14.2286,22.7085 C13.9301,22.9957 13.9209,23.4705 14.208,23.769 C14.4952,24.0675 14.97,24.0767 15.2685,23.7896 L24.6965,14.7202 C25.1054,14.3268 25.1054,13.6723 24.6965,13.2788 L15.2685,4.20949 Z" />
+							</Button>
+							<Button DockPanel.Dock="Left" Margin="0,0,10,0" ToolTip.Tip="Reload" Width="32" Height="32" Background="Transparent" CornerRadius="16">
+								<PathIcon Width="12" Height="12" Data="M18.6195264,3.31842271 C19.0080059,3.31842271 19.3290603,3.60710385 19.3798716,3.9816481 L19.3868766,4.08577298 L19.3868766,6.97963208 C19.3868766,7.36811161 19.0981955,7.68916605 18.7236513,7.73997735 L18.6195264,7.74698235 L15.7256673,7.74698235 C15.3018714,7.74698235 14.958317,7.40342793 14.958317,6.97963208 C14.958317,6.59115255 15.2469981,6.27009811 15.6215424,6.21928681 L15.7256673,6.21228181 L16.7044011,6.21182461 C13.7917384,3.87107476 9.52212532,4.05209336 6.81933829,6.75488039 C3.92253872,9.65167996 3.92253872,14.34832 6.81933829,17.2451196 C9.71613786,20.1419192 14.4127779,20.1419192 17.3095775,17.2451196 C19.0725398,15.4821573 19.8106555,12.9925923 19.3476248,10.58925 C19.2674502,10.173107 19.5398064,9.77076216 19.9559494,9.69058758 C20.3720923,9.610413 20.7744372,9.88276918 20.8546118,10.2989121 C21.4129973,13.1971899 20.5217103,16.2033812 18.3947747,18.3303168 C14.8986373,21.8264542 9.23027854,21.8264542 5.73414113,18.3303168 C2.23800371,14.8341794 2.23800371,9.16582064 5.73414113,5.66968323 C9.05475132,2.34907304 14.3349409,2.18235834 17.8523166,5.16953912 L17.8521761,4.08577298 C17.8521761,3.66197713 18.1957305,3.31842271 18.6195264,3.31842271 Z" />
+							</Button>
+
+							<Button Content="Go" DockPanel.Dock="Right" Margin="10,0,0,0" Background="Transparent" />
+
+							<TextBox Text="" Watermark="Enter URL..." HorizontalAlignment="Stretch" BorderThickness="0" CornerRadius="16"/>
+						</DockPanel>
+
+						<StackPanel Orientation="Horizontal" Spacing="10" Opacity="0.6" Margin="5">
+							<Button Content="selenium.dev" Command="{Binding NavigateCommand}" CommandParameter="https://www.selenium.dev" Background="Transparent"/>
+							<Button Content="google.com" Command="{Binding NavigateCommand}" CommandParameter="https://www.google.com" Background="Transparent"/>
+						</StackPanel>
+					</StackPanel>
+				</Border>
+
+			</DockPanel>
+		</Grid>
+
+		<Grid Grid.Row="1" Grid.ColumnDefinitions="2*, Auto, *">
+
+			<Grid>
+				<Image Source="{Binding Screenshot}" Margin="30" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="HighQuality" />
+			</Grid>
+
+			<GridSplitter Grid.Column="1" />
+
+			<TabControl Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+				<TabItem Header="Network">
+					<view:NetworkView DataContext="{Binding NetworkViewModel}" />
+				</TabItem>
+				<TabItem Header="Elements">
+					<TextBlock Text="qwe" />
+				</TabItem>
+			</TabControl>
+
+		</Grid>
+	</Grid>
+
+
+
+
+</UserControl>

@@ -1,0 +1,195 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+		xmlns:vm="using:Mirror.ViewModels"
+		xmlns:views="using:Mirror.Views"
+		xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+		xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+		mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+		x:Class="Mirror.Views.MainWindow"
+		x:DataType="vm:MainWindowViewModel"
+		MinWidth="600" MinHeight="400"
+		Icon="/Assets/avalonia-logo.ico"
+		ExtendClientAreaToDecorationsHint="True"
+		Title="Mirror">
+
+	<Design.DataContext>
+		<!-- This only sets the DataContext for the previewer in an IDE,
+		to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+		<vm:MainWindowViewModel/>
+	</Design.DataContext>
+
+	<Panel>
+		<TransitioningContentControl Content="{Binding DisplayContent}">
+			<TransitioningContentControl.PageTransition>
+				<CrossFade Duration="0:0:0.2" />
+			</TransitioningContentControl.PageTransition>
+
+			<TransitioningContentControl.DataTemplates>
+				<!-- Main browser view -->
+				<DataTemplate DataType="vm:MainWindowViewModel">
+					<Grid RowDefinitions="*, 3*">
+						<StackPanel Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="60">
+							<TextBlock Text="The art of Selenium WebDriver BiDi" FontSize="40" FontWeight="ExtraLight" />
+						</StackPanel>
+
+						<TabControl Grid.Row="1" ItemsSource="{Binding Browsers}" SelectedItem="{Binding CurrentBrowser}">
+							<TabControl.Styles>
+								<Style Selector="TabControl /template/ WrapPanel"> <Setter Property="HorizontalAlignment" Value="Center"/> </Style>
+								<!-- Dim header content for unselected tabs with animated opacity -->
+								<Style Selector="TabItem">
+									<Setter Property="Opacity" Value="0.6" />
+									<Setter Property="Transitions">
+										<Transitions>
+											<DoubleTransition Property="Opacity" Duration="0:0:0.15" Easing="0.3,0.0,0.2,1.0" />
+										</Transitions>
+									</Setter>
+								</Style>
+								<Style Selector="TabItem:pointerover">
+									<Setter Property="Opacity" Value="1" />
+								</Style>
+								<Style Selector="TabItem:selected">
+									<Setter Property="Opacity" Value="1" />
+								</Style>
+								<Style Selector="TabItem:selected /template/ Border#PART_SelectedPipe">
+									<Setter Property="IsVisible" Value="False"/>
+								</Style>
+							</TabControl.Styles>
+							<TabControl.ItemTemplate>
+								<DataTemplate x:DataType="vm:BrowserViewModel">
+									<Grid>
+										<Panel Background="Transparent">
+											<Image Source="{Binding LogoPath}" Width="120" Height="120" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="HighQuality" Margin="20" />
+											<Grid VerticalAlignment="Top" HorizontalAlignment="Right">
+												<Ellipse Width="40" Height="40" Fill="{DynamicResource SystemControlBackgroundBaseLowBrush}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,10,0,0" />
+												<TextBlock Text="{Binding Contexts.Count}" Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,10" FontSize="16" />
+											</Grid>
+										</Panel>
+
+										<Button x:Name="StartButton" Classes="accent"
+												FontWeight="Medium"
+												HorizontalAlignment="Stretch"
+												VerticalAlignment="Bottom"
+												HorizontalContentAlignment="Center"
+												IsVisible="{Binding $parent[TabItem].IsSelected}"
+												CornerRadius="10"
+												Command="{Binding StartBrowserCommand}">
+											<Button.Content>
+												<Grid>
+													<TextBlock Text="Start" HorizontalAlignment="Center" VerticalAlignment="Center" />
+													<ProgressBar IsVisible="{Binding IsBusy}"
+																 IsIndeterminate="True"
+																 Height="1"
+																 MinWidth="0"
+																 HorizontalAlignment="Stretch"
+																 VerticalAlignment="Bottom" />
+												</Grid>
+											</Button.Content>
+										</Button>
+									</Grid>
+								</DataTemplate>
+							</TabControl.ItemTemplate>
+							<TabControl.ContentTemplate>
+								<DataTemplate x:DataType="vm:BrowserViewModel">
+									<Grid>
+										<Button Content="Emulate" Command="{Binding StartEmulationCommand}" VerticalAlignment="Top" />
+										<ToggleSwitch IsChecked="{Binding IsIsolated, Mode = TwoWay}" OnContent="Isolated" OffContent="Isolated" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0, 20" />
+
+										<ScrollViewer Margin="0, 40, 0, 0" IsVisible="{Binding Contexts.Count}">
+											<ItemsControl ItemsSource="{Binding Contexts}">
+												<ItemsControl.ItemsPanel>
+													<ItemsPanelTemplate>
+														<WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" ItemWidth="320" ItemHeight="240" Margin="40" />
+													</ItemsPanelTemplate>
+												</ItemsControl.ItemsPanel>
+												<ItemsControl.ItemTemplate>
+													<DataTemplate x:DataType="vm:ContextViewModel">
+														<Border Background="Transparent" Classes="container"
+																CornerRadius="20"
+																Cursor="Hand"
+																Tapped="Border_Tapped">
+															<Border.Styles>
+																<Style Selector="Border.container">
+																	<Setter Property="RenderTransform" Value="scale(1)"/>
+																	<Setter Property="Opacity" Value="0.8" />
+																	<Setter Property="Transitions">
+																		<Transitions>
+																			<DoubleTransition Property="Opacity" Duration="0:0:0.15" Easing="0.3,0.0,0.2,1.0" />
+																			<TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1"/>
+																		</Transitions>
+																	</Setter>
+																</Style>
+																<Style Selector="Border.container:pointerover">
+																	<Setter Property="RenderTransform" Value="scale(1.05)"/>
+																	<Setter Property="Opacity" Value="1" />
+																</Style>
+																<Style Selector="Border.container Button#Close">
+																	<Setter Property="Opacity" Value="0"/>
+																	<Setter Property="IsVisible" Value="False"/>
+																</Style>
+																<Style Selector="Border.container:pointerover Button#Close">
+																	<Setter Property="Opacity" Value="1"/>
+																	<Setter Property="IsVisible" Value="True"/>
+																</Style>
+															</Border.Styles>
+
+															<Border BorderBrush="{DynamicResource SystemAccentColorLight2}"
+																	BorderThickness="2"
+																	CornerRadius="20"
+																	HorizontalAlignment="Stretch"
+																	VerticalAlignment="Stretch"
+																	Margin="20"
+																	RenderTransformOrigin="0.5,0.5"
+																	ClipToBounds="True"
+																	Background="Transparent">
+
+																<Border CornerRadius="20" ClipToBounds="True">
+																	<Image Source="{Binding Screenshot}"
+																		   Stretch="UniformToFill"
+																		   RenderOptions.BitmapInterpolationMode="MediumQuality" />
+																</Border>
+															</Border>
+														</Border>
+													</DataTemplate>
+												</ItemsControl.ItemTemplate>
+											</ItemsControl>
+										</ScrollViewer>
+
+										<Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
+												Margin="20" CornerRadius="10" Padding="10"
+												Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+												Opacity="0.7" IsVisible="{Binding BrowserVersion, Converter={x:Static ObjectConverters.IsNotNull}}">
+											<SelectableTextBlock Text="{Binding BrowserVersion}" Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14" />
+										</Border>
+
+										<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" IsVisible="{Binding !Contexts.Count}">
+											<TextBlock Text="No browser yet"
+													   FontSize="24"
+													   FontWeight="Light"
+													   HorizontalAlignment="Center"
+													   Opacity="0.6" />
+											<TextBlock Text="Click the Start button to create a new browser"
+													   FontSize="14"
+													   HorizontalAlignment="Center"
+													   Opacity="0.5" />
+											<StackPanel Orientation="Horizontal" Spacing="20" HorizontalAlignment="Center">
+												<ToggleSwitch IsChecked="{Binding IsHeadless, Mode=TwoWay}" IsEnabled="{Binding !IsBusy}" OnContent="Headless" OffContent="Headless" />
+												<ToggleSwitch IsChecked="{Binding IsBetaChannel, Mode=TwoWay}" IsEnabled="{Binding !IsBusy}" OnContent="Beta Channel" OffContent="Beta Channel" />
+											</StackPanel>
+										</StackPanel>
+									</Grid>
+								</DataTemplate>
+							</TabControl.ContentTemplate>
+						</TabControl>
+					</Grid>
+				</DataTemplate>
+
+				<!-- Context page view -->
+				<DataTemplate x:DataType="vm:ContextViewModel">
+					<!-- Context page content -->
+					<views:ContextPage Grid.Row="1" />
+				</DataTemplate>
+			</TransitioningContentControl.DataTemplates>
+		</TransitioningContentControl>
+	</Panel>
+
+</Window>

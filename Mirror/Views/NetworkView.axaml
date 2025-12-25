@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+			 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+			 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+			 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+			 xmlns:vm="using:Mirror.ViewModels"
+			 mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+			 x:DataType="vm:NetworkViewModel"
+			 x:Class="Mirror.Views.NetworkView">
+	<Grid RowDefinitions="Auto, *">
+		<StackPanel Orientation="Horizontal" Spacing="20" Margin="0, 10">
+			<Button Command="{Binding ClearRequestsCommand}" ToolTip.Tip="Clear" Width="32" Height="32" Background="Transparent" CornerRadius="16">
+				<PathIcon Width="16" Height="16" Data="M24 5C34.4934 5 43 13.5066 43 24C43 34.4934 34.4934 43 24 43C13.5066 43 5 34.4934 5 24C5 13.5066 13.5066 5 24 5ZM36.518 13.2502L13.2502 36.518C16.1377 39 19.8937 40.5 24 40.5C33.1127 40.5 40.5 33.1127 40.5 24C40.5 19.8937 39 16.1377 36.518 13.2502ZM24 7.5C14.8873 7.5 7.5 14.8873 7.5 24C7.5 28.1063 9.00002 31.8623 11.482 34.7498L34.7498 11.482C31.8623 9.00002 28.1063 7.5 24 7.5Z" />
+			</Button>
+			<ToggleSwitch OnContent="Cache disabled" OffContent="Cache enabled" Command="{Binding ChangeCacheCommand}" CommandParameter="{Binding $self.IsChecked}" />
+		</StackPanel>
+
+		<ListBox Grid.Row="1" ItemsSource="{Binding Requests}" Background="Transparent">
+			<ListBox.ItemTemplate>
+				<DataTemplate x:DataType="vm:NetworkRequestViewModel">
+					<Grid>
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="80"/>
+							<ColumnDefinition Width="*"/>
+							<ColumnDefinition Width="120"/>
+							<ColumnDefinition Width="100"/>
+							<ColumnDefinition Width="100"/>
+						</Grid.ColumnDefinitions>
+						<TextBlock Grid.Column="0"
+								   Text="{Binding Method}" />
+						<TextBlock Grid.Column="1"
+								   Text="{Binding UrlDisplay}" ToolTip.Tip="{Binding Url}"
+								   TextTrimming="PathSegmentEllipsis"
+								   MinWidth="200"/>
+						<TextBlock Grid.Column="2"
+								   Text="{Binding Initiator}" />
+						<TextBlock Grid.Column="3"
+								   Text="{Binding Status}" />
+						<TextBlock Grid.Column="4"
+								   Text="{Binding DurationDisplay}" />
+					</Grid>
+				</DataTemplate>
+			</ListBox.ItemTemplate>
+		</ListBox>
+	</Grid>
+</UserControl>
