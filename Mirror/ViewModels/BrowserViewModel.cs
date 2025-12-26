@@ -9,6 +9,7 @@ using OpenQA.Selenium.BiDi.BrowsingContext;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,7 +23,7 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
 
     public Bitmap LogoPath { get; } = new(AssetLoader.Open(new Uri(logoPath)));
 
-    private readonly Lock _contextsLock = new();
+    private readonly SemaphoreSlim _contextsLock = new(1, 1);
     public ObservableCollection<ContextViewModel> Contexts { get; } = [];
 
 
@@ -139,11 +140,17 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
                     await firstContext.InitializeAsync();
 
                     // Update UI from background thread
-                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    await Dispatcher.UIThread.InvokeAsync(async () =>
                     {
-                        _contextsLock.Enter();
-                        Contexts.Add(firstContext);
-                        _contextsLock.Exit();
+                        await _contextsLock.WaitAsync();
+                        try
+                        {
+                            Contexts.Add(firstContext);
+                        }
+                        finally
+                        {
+                            _contextsLock.Release();
+                        }
                     });
 
                     await _bidi.BrowsingContext.OnContextCreatedAsync(async e =>
@@ -155,11 +162,17 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
                             await vm.InitializeAsync();
 
                             // Update UI from background thread
-                            await Dispatcher.UIThread.InvokeAsync(() =>
+                            await Dispatcher.UIThread.InvokeAsync(async () =>
                             {
-                                _contextsLock.Enter();
-                                Contexts.Add(vm);
-                                _contextsLock.Exit();
+                                await _contextsLock.WaitAsync();
+                                try
+                                {
+                                    Contexts.Add(vm);
+                                }
+                                finally
+                                {
+                                    _contextsLock.Release();
+                                }
                             });
                         }
                     });
@@ -170,12 +183,20 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
 
                         if (vm is not null)
                         {
+                            await vm.DisposeAsync();
+
                             // Update UI from background thread
-                            await Dispatcher.UIThread.InvokeAsync(() =>
+                            await Dispatcher.UIThread.InvokeAsync(async () =>
                             {
-                                _contextsLock.Enter();
-                                Contexts.Remove(vm);
-                                _contextsLock.Exit();
+                                await _contextsLock.WaitAsync();
+                                try
+                                {
+                                    Contexts.Remove(vm);
+                                }
+                                finally
+                                {
+                                    _contextsLock.Release();
+                                }
                             });
                         }
 
@@ -221,54 +242,69 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
     [RelayCommand]
     private async Task StopBrowser()
     {
-        _contextsLock.Enter();
+        await _contextsLock.WaitAsync();
 
-        await Task.Run(async () =>
+        try
         {
-            if (_bidi is not null)
+            await Task.Run(async () =>
             {
-                try
+                if (_bidi is not null)
                 {
-                    // await _bidi.DisposeAsync();
+                    try
+                    {
+                        // await _bidi.DisposeAsync();
+                    }
+                    catch (Exception)
+                    {
+                        // Ignore exceptions during disposal
+                    }
+                    finally
+                    {
+                        _bidi = null;
+                    }
                 }
-                catch (Exception)
-                {
-                    // Ignore exceptions during disposal
-                }
-                finally
-                {
-                    _bidi = null;
-                }
-            }
 
-            _webDriver?.Dispose();
+                _webDriver?.Dispose();
 
-            _webDriver = null;
-        });
-
-        _contextsLock.Exit();
+                _webDriver = null;
+            });
+        }
+        finally
+        {
+            _contextsLock.Release();
+        }
     }
 
+    [ObservableProperty]
+    private int _emulationThreads = 20;
+
     private bool CanStartEmulation() => !IsBusy && Contexts.Count > 0;
+
+    [ObservableProperty]
+    private int _emulationDurationSeconds;
 
     [RelayCommand(CanExecute = nameof(CanStartEmulation))]
     public async Task StartEmulation()
     {
+        var sw = Stopwatch.StartNew();
+
         List<Task> tasks = [];
 
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < EmulationThreads; i++)
         {
             tasks.Add(EmulationScenarioAsync());
         }
 
         await Task.WhenAll(tasks);
+
+        EmulationDurationSeconds = (int)sw.Elapsed.TotalSeconds;
     }
 
     private async Task EmulationScenarioAsync()
     {
         var context = await StartBrowserCore();
         await context.NavigateAsync("https://nuget.org", new() { Wait = ReadinessState.Complete });
-        await Task.Delay(3_000);
+        //await Task.Delay(3_000);
         await context.CloseAsync();
     }
 }

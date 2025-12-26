@@ -2,7 +2,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OpenQA.Selenium.BiDi.BrowsingContext;
+using OpenQA.Selenium.BiDi.Network;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -34,6 +36,7 @@ public partial class NetworkViewModel(BrowsingContext context) : ViewModelBase
                 {
                     requestViewModel.Status = e.Response.Status.ToString();
                     requestViewModel.Duration = TimeSpan.FromMilliseconds(e.Request.Timings.ResponseEnd - e.Request.Timings.RequestStart);
+                    requestViewModel.ResponseHeaders = [.. e.Response.Headers.Select(h => new HeaderModel(h.Name, (string)h.Value))];
                 });
             }
         });
@@ -59,13 +62,17 @@ public partial class NetworkRequestViewModel(OpenQA.Selenium.BiDi.Network.Before
     public OpenQA.Selenium.BiDi.Network.Request Request => requestData.Request.Request;
 
     public string Method => requestData.Request.Method;
+
     public string Url => requestData.Request.Url;
 
     public string UrlDisplay => new Uri(Url).PathAndQuery;
 
     public string Initiator => requestData.Initiator.Type.ToString();
 
+    public IReadOnlyList<HeaderModel> RequestHeaders => [.. requestData.Request.Headers.Select(req => new HeaderModel(req.Name, (string)req.Value))];
 
+    [ObservableProperty]
+    private bool _isExpanded = false;
 
     [ObservableProperty]
     private string _status = "Pending";
@@ -75,4 +82,13 @@ public partial class NetworkRequestViewModel(OpenQA.Selenium.BiDi.Network.Before
     private TimeSpan? _duration;
 
     public string? DurationDisplay => Duration is not null ? $"{(int)Duration.Value.TotalMilliseconds} ms" : null;
+
+    [ObservableProperty]
+    private IReadOnlyList<HeaderModel>? _responseHeaders;
+}
+
+public class HeaderModel(string name, string value)
+{
+    public string Name { get; } = name;
+    public string Value { get; } = value;
 }

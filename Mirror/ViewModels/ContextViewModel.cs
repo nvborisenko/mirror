@@ -7,12 +7,22 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using CommunityToolkit.Mvvm.Input;
-using System.Collections.ObjectModel;
+using System.Threading;
 
 namespace Mirror.ViewModels;
 
-public partial class ContextViewModel(BrowsingContext context) : ViewModelBase
+public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
 {
+    public ContextViewModel(BrowsingContext context)
+    {
+        Context = context;
+        NetworkViewModel = new(context);
+
+        _cancellationTokenSource = new CancellationTokenSource();
+    }
+
+    private readonly CancellationTokenSource _cancellationTokenSource;
+
     const string DefaultTitle = "New Tab";
 
     private Task _screenshotTask;
@@ -26,17 +36,20 @@ public partial class ContextViewModel(BrowsingContext context) : ViewModelBase
 
     public async Task InitializeAsync()
     {
-        //await Context.OnLoadAsync(async e =>
-        //{
-        //    if (e.Context.Equals(Context))
-        //    {
-        //        //Title = await e.Context.Script.EvaluateAsync<string>("document.title", true) ?? DefaultTitle;
-        //    }
-        //});
+        await Context.OnLoadAsync(async e =>
+        {
+            if (e.Context.Equals(Context))
+            {
+                if (!_cancellationTokenSource.Token.IsCancellationRequested)
+                {
+                    Title = await e.Context.Script.EvaluateAsync<string>("document.title", true) ?? DefaultTitle;
+                }
+            }
+        });
 
         _screenshotTask = Task.Run(async () =>
         {
-            while (true)
+            while (!_cancellationTokenSource.Token.IsCancellationRequested)
             {
                 try
                 {
@@ -75,7 +88,7 @@ public partial class ContextViewModel(BrowsingContext context) : ViewModelBase
         await NetworkViewModel.InitializeAsync();
     }
 
-    public BrowsingContext Context { get; } = context;
+    public BrowsingContext Context { get; }
 
     [RelayCommand]
     public async Task Navigate(string url)
@@ -89,5 +102,12 @@ public partial class ContextViewModel(BrowsingContext context) : ViewModelBase
         await Context.CloseAsync();
     }
 
-    public NetworkViewModel NetworkViewModel { get; } = new(context);
+    public NetworkViewModel NetworkViewModel { get; }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _cancellationTokenSource.CancelAsync();
+
+        _cancellationTokenSource.Dispose();
+    }
 }

@@ -23,6 +23,11 @@ public partial class MainWindow : Window
         }
     }
 
+    private void CloseButton_Tapped(object? sender, TappedEventArgs e)
+    {
+        e.Handled = true;
+    }
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         if (DataContext is MainWindowViewModel vm)
@@ -52,5 +57,22 @@ public partial class MainWindow : Window
         }
 
         base.OnClosing(e);
+    }
+
+    private void ButtonSpinner_Spin(object? sender, SpinEventArgs e)
+    {
+        var vm = DataContext as MainWindowViewModel;
+
+        if (e.Direction == SpinDirection.Increase)
+        {
+            vm.CurrentBrowser.EmulationThreads++;
+        }
+        else
+        {
+            if (vm.CurrentBrowser.EmulationThreads != 1)
+            {
+                vm.CurrentBrowser.EmulationThreads--;
+            }
+        }
     }
 }

@@ -6,7 +6,7 @@
 			 mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
 			 x:DataType="vm:NetworkViewModel"
 			 x:Class="Mirror.Views.NetworkView">
-	<Grid RowDefinitions="Auto, *">
+	<Grid RowDefinitions="Auto, *, Auto">
 		<StackPanel Orientation="Horizontal" Spacing="20" Margin="0, 10">
 			<Button Command="{Binding ClearRequestsCommand}" ToolTip.Tip="Clear" Width="32" Height="32" Background="Transparent" CornerRadius="16">
 				<PathIcon Width="16" Height="16" Data="M24 5C34.4934 5 43 13.5066 43 24C43 34.4934 34.4934 43 24 43C13.5066 43 5 34.4934 5 24C5 13.5066 13.5066 5 24 5ZM36.518 13.2502L13.2502 36.518C16.1377 39 19.8937 40.5 24 40.5C33.1127 40.5 40.5 33.1127 40.5 24C40.5 19.8937 39 16.1377 36.518 13.2502ZM24 7.5C14.8873 7.5 7.5 14.8873 7.5 24C7.5 28.1063 9.00002 31.8623 11.482 34.7498L34.7498 11.482C31.8623 9.00002 28.1063 7.5 24 7.5Z" />
@@ -14,32 +14,173 @@
 			<ToggleSwitch OnContent="Cache disabled" OffContent="Cache enabled" Command="{Binding ChangeCacheCommand}" CommandParameter="{Binding $self.IsChecked}" />
 		</StackPanel>
 
-		<ListBox Grid.Row="1" ItemsSource="{Binding Requests}" Background="Transparent">
-			<ListBox.ItemTemplate>
-				<DataTemplate x:DataType="vm:NetworkRequestViewModel">
-					<Grid>
-						<Grid.ColumnDefinitions>
-							<ColumnDefinition Width="80"/>
-							<ColumnDefinition Width="*"/>
-							<ColumnDefinition Width="120"/>
-							<ColumnDefinition Width="100"/>
-							<ColumnDefinition Width="100"/>
-						</Grid.ColumnDefinitions>
-						<TextBlock Grid.Column="0"
-								   Text="{Binding Method}" />
-						<TextBlock Grid.Column="1"
-								   Text="{Binding UrlDisplay}" ToolTip.Tip="{Binding Url}"
-								   TextTrimming="PathSegmentEllipsis"
-								   MinWidth="200"/>
-						<TextBlock Grid.Column="2"
-								   Text="{Binding Initiator}" />
-						<TextBlock Grid.Column="3"
-								   Text="{Binding Status}" />
-						<TextBlock Grid.Column="4"
-								   Text="{Binding DurationDisplay}" />
-					</Grid>
-				</DataTemplate>
-			</ListBox.ItemTemplate>
-		</ListBox>
+		<ScrollViewer Grid.Row="1">
+			<ItemsRepeater ItemsSource="{Binding Requests}">
+				<ItemsRepeater.Layout>
+					<StackLayout />
+				</ItemsRepeater.Layout>
+				<ItemsRepeater.ItemTemplate>
+					<DataTemplate x:DataType="vm:NetworkRequestViewModel">
+						<Border BorderThickness="0" Background="Transparent" Margin="0,1">
+							<Expander HorizontalAlignment="Stretch" IsExpanded="{Binding IsExpanded}">
+								<Expander.Styles>
+									<Style Selector="Expander">
+										<Setter Property="BorderThickness" Value="0"/>
+										<Setter Property="BorderBrush" Value="Transparent"/>
+										<Setter Property="Background" Value="Transparent"/>
+										<Setter Property="Padding" Value="0"/>
+										<Setter Property="Margin" Value="0"/>
+									</Style>
+
+									<Style Selector="Expander /template/ Border#ExpanderContent">
+										<Setter Property="BorderThickness" Value="0"/>
+										<Setter Property="BorderBrush" Value="Transparent"/>
+										<Setter Property="Background" Value="Transparent"/>
+										<Setter Property="Padding" Value="0"/>
+									</Style>
+
+									<Style Selector="Expander /template/ ToggleButton">
+										<Setter Property="BorderThickness" Value="0"/>
+										<Setter Property="BorderBrush" Value="Transparent"/>
+										<Setter Property="Background" Value="Transparent"/>
+										<Setter Property="Padding" Value="8,4"/>
+										<Setter Property="HorizontalAlignment" Value="Stretch"/>
+										<Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+									</Style>
+
+									<Style Selector="Expander /template/ ToggleButton:pointerover">
+										<Setter Property="Background" Value="#10FFFFFF"/>
+									</Style>
+
+									<Style Selector="Expander /template/ ToggleButton:pressed">
+										<Setter Property="Background" Value="#18FFFFFF"/>
+									</Style>
+
+									<Style Selector="Expander /template/ ToggleButton /template/ ContentPresenter#PART_ContentPresenter">
+										<Setter Property="Background" Value="Transparent"/>
+										<Setter Property="BorderThickness" Value="0"/>
+									</Style>
+
+									<Style Selector="Expander:expanded /template/ ToggleButton">
+										<Setter Property="Background" Value="#08FFFFFF"/>
+									</Style>
+
+									<Style Selector="Expander:expanded /template/ ToggleButton:pointerover">
+										<Setter Property="Background" Value="#10FFFFFF"/>
+									</Style>
+								</Expander.Styles>
+								<Expander.Header>
+									<Grid ColumnDefinitions="80,*,120,100,100" Margin="4,0">
+										<TextBlock Grid.Column="0"
+												   Text="{Binding Method}"
+												   VerticalAlignment="Center"/>
+										<TextBlock Grid.Column="1"
+												   Text="{Binding UrlDisplay}" ToolTip.Tip="{Binding Url}"
+												   TextTrimming="PathSegmentEllipsis"
+												   MinWidth="200"
+												   VerticalAlignment="Center"/>
+										<TextBlock Grid.Column="2"
+												   Text="{Binding Initiator}"
+												   VerticalAlignment="Center"/>
+										<TextBlock Grid.Column="3"
+												   Text="{Binding Status}"
+												   VerticalAlignment="Center"/>
+										<TextBlock Grid.Column="4"
+												   Text="{Binding DurationDisplay}"
+												   VerticalAlignment="Center"/>
+									</Grid>
+								</Expander.Header>
+								<Expander.Content>
+									<Border Background="{DynamicResource SystemControlBackgroundBaseLowBrush}" CornerRadius="10" Padding="12" Margin="8,0,0,4">
+										<TabControl Background="Transparent" BorderThickness="0">
+											<TabControl.Styles>
+												<Style Selector="TabControl">
+													<Setter Property="Background" Value="Transparent"/>
+													<Setter Property="BorderThickness" Value="0"/>
+												</Style>
+												<Style Selector="TabItem">
+													<Setter Property="FontSize" Value="14"/>
+													<Setter Property="Background" Value="Transparent"/>
+													<Setter Property="BorderThickness" Value="0"/>
+												</Style>
+											</TabControl.Styles>
+											<TabItem Header="Headers">
+												<StackPanel HorizontalAlignment="Stretch" Margin="10" Spacing="10">
+
+													<SelectableTextBlock TextWrapping="Wrap">
+														<Run Text="Request URL: " FontWeight="SemiBold"/>
+														<Run Text="{Binding Url}" FontFamily="Consolas" />
+													</SelectableTextBlock>
+													<SelectableTextBlock TextWrapping="Wrap">
+														<Run Text="Request Method: " FontWeight="SemiBold"/>
+														<Run Text="{Binding Method}" FontFamily="Consolas" />
+													</SelectableTextBlock>
+
+													<Expander Header="Request Headers" HorizontalAlignment="Stretch" Background="Transparent">
+														<Expander.Styles>
+															<Style Selector="Expander">
+																<Setter Property="Background" Value="Transparent"/>
+																<Setter Property="BorderThickness" Value="0"/>
+															</Style>
+														</Expander.Styles>
+														<ItemsControl ItemsSource="{Binding RequestHeaders}">
+															<ItemsControl.ItemTemplate>
+																<DataTemplate>
+																	<SelectableTextBlock TextWrapping="Wrap">
+																		<Run Text="{Binding Name}" FontWeight="SemiBold"/>
+																		<Run Text=": " />
+																		<Run Text="{Binding Value}" FontFamily="Consolas" />
+																	</SelectableTextBlock>
+																</DataTemplate>
+															</ItemsControl.ItemTemplate>
+														</ItemsControl>
+													</Expander>
+
+													<Expander Header="Response Headers" HorizontalAlignment="Stretch" Background="Transparent">
+														<Expander.Styles>
+															<Style Selector="Expander">
+																<Setter Property="Background" Value="Transparent"/>
+																<Setter Property="BorderThickness" Value="0"/>
+															</Style>
+														</Expander.Styles>
+														<ItemsControl ItemsSource="{Binding ResponseHeaders}">
+															<ItemsControl.ItemTemplate>
+																<DataTemplate>
+																	<SelectableTextBlock TextWrapping="Wrap">
+																		<Run Text="{Binding Name}" FontWeight="SemiBold"/>
+																		<Run Text=": " />
+																		<Run Text="{Binding Value}" FontFamily="Consolas" />
+																	</SelectableTextBlock>
+																</DataTemplate>
+															</ItemsControl.ItemTemplate>
+														</ItemsControl>
+													</Expander>
+												</StackPanel>
+											</TabItem>
+											<TabItem Header="Preview">
+
+											</TabItem>
+											<TabItem Header="Response">
+
+											</TabItem>
+											<TabItem Header="Timing">
+
+											</TabItem>
+										</TabControl>
+									</Border>
+								</Expander.Content>
+							</Expander>
+						</Border>
+					</DataTemplate>
+				</ItemsRepeater.ItemTemplate>
+			</ItemsRepeater>
+		</ScrollViewer>
+
+		<StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left" Margin="10" Spacing="10">
+			<TextBlock VerticalAlignment="Center">
+				<Run Text="{Binding Requests.Count}" />
+				<Run Text=" requests" />
+			</TextBlock>
+		</StackPanel>
 	</Grid>
 </UserControl>

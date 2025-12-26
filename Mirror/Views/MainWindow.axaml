@@ -90,11 +90,22 @@
 							</TabControl.ItemTemplate>
 							<TabControl.ContentTemplate>
 								<DataTemplate x:DataType="vm:BrowserViewModel">
-									<Grid>
-										<Button Content="Emulate" Command="{Binding StartEmulationCommand}" VerticalAlignment="Top" />
+									<Grid RowDefinitions="Auto, *">
 										<ToggleSwitch IsChecked="{Binding IsIsolated, Mode = TwoWay}" OnContent="Isolated" OffContent="Isolated" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0, 20" />
 
-										<ScrollViewer Margin="0, 40, 0, 0" IsVisible="{Binding Contexts.Count}">
+										<Border IsVisible="{Binding Contexts.Count}" HorizontalAlignment="Right" Margin="20" Padding="10" VerticalAlignment="Top" Background="{DynamicResource SystemControlBackgroundBaseLowBrush}" CornerRadius="10">
+											<StackPanel Orientation="Horizontal" Spacing="10">
+												<TextBlock Text="Emulation" VerticalAlignment="Center" />
+												<ButtonSpinner Content="{Binding EmulationThreads}" Spin="ButtonSpinner_Spin" />
+												<Button Content="Start" Command="{Binding StartEmulationCommand}" />
+												<TextBlock VerticalAlignment="Center">
+													<Run Text="{Binding EmulationDurationSeconds}" />
+													<Run Text="seconds" />
+												</TextBlock>
+											</StackPanel>
+										</Border>
+
+										<ScrollViewer Grid.Row="1" IsVisible="{Binding Contexts.Count}">
 											<ItemsControl ItemsSource="{Binding Contexts}">
 												<ItemsControl.ItemsPanel>
 													<ItemsPanelTemplate>
@@ -122,17 +133,17 @@
 																	<Setter Property="RenderTransform" Value="scale(1.05)"/>
 																	<Setter Property="Opacity" Value="1" />
 																</Style>
-																<Style Selector="Border.container Button#Close">
+																<Style Selector="Border.container Grid#CaptionPanel">
 																	<Setter Property="Opacity" Value="0"/>
 																	<Setter Property="IsVisible" Value="False"/>
 																</Style>
-																<Style Selector="Border.container:pointerover Button#Close">
-																	<Setter Property="Opacity" Value="1"/>
+																<Style Selector="Border.container:pointerover Grid#CaptionPanel">
+																	<Setter Property="Opacity" Value="0.8"/>
 																	<Setter Property="IsVisible" Value="True"/>
 																</Style>
 															</Border.Styles>
 
-															<Border BorderBrush="{DynamicResource SystemAccentColorLight2}"
+															<Border BorderBrush="{DynamicResource SystemAccentColor}"
 																	BorderThickness="2"
 																	CornerRadius="20"
 																	HorizontalAlignment="Stretch"
@@ -143,9 +154,37 @@
 																	Background="Transparent">
 
 																<Border CornerRadius="20" ClipToBounds="True">
-																	<Image Source="{Binding Screenshot}"
-																		   Stretch="UniformToFill"
-																		   RenderOptions.BitmapInterpolationMode="MediumQuality" />
+																	<Grid>
+																		<Image Source="{Binding Screenshot}"
+																			   Stretch="UniformToFill"
+																			   RenderOptions.BitmapInterpolationMode="MediumQuality" />
+
+																		<Grid x:Name="CaptionPanel" ColumnDefinitions="*, Auto" HorizontalAlignment="Stretch" VerticalAlignment="Top" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+																			<TextBlock Text="{Binding Title}"
+																					   FontSize="16"
+																					   FontWeight="SemiBold"
+																					   Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
+																					   Margin="10"
+																					   TextTrimming="CharacterEllipsis"
+																					   HorizontalAlignment="Stretch"
+																					   VerticalAlignment="Center" />
+
+																			<Button x:Name="Close" Classes="accent"
+																					Grid.Column="1"
+																					Width="32"
+																					Height="32"
+																					HorizontalAlignment="Right"
+																					VerticalAlignment="Center"
+																					Margin="10"
+																					CornerRadius="16"
+																					Cursor="Arrow"
+																					ToolTip.Tip="Close Context"
+																					Tapped="CloseButton_Tapped"
+																					Command="{Binding CloseContextCommand}">
+																				<PathIcon Width="12" Height="12" Foreground="White" Data="M3.52499419,3.71761187 L3.61611652,3.61611652 C4.0717282,3.16050485 4.79154862,3.13013074 5.28238813,3.52499419 L5.38388348,3.61611652 L14,12.233 L22.6161165,3.61611652 C23.1042719,3.12796116 23.8957281,3.12796116 24.3838835,3.61611652 C24.8720388,4.10427189 24.8720388,4.89572811 24.3838835,5.38388348 L15.767,14 L24.3838835,22.6161165 C24.8394952,23.0717282 24.8698693,23.7915486 24.4750058,24.2823881 L24.3838835,24.3838835 C23.9282718,24.8394952 23.2084514,24.8698693 22.7176119,24.4750058 L22.6161165,24.3838835 L14,15.767 L5.38388348,24.3838835 C4.89572811,24.8720388 4.10427189,24.8720388 3.61611652,24.3838835 C3.12796116,23.8957281 3.12796116,23.1042719 3.61611652,22.6161165 L12.233,14 L3.61611652,5.38388348 C3.16050485,4.9282718 3.13013074,4.20845138 3.52499419,3.71761187 L3.61611652,3.61611652 L3.52499419,3.71761187 Z" />
+																			</Button>
+																		</Grid>
+																	</Grid>
 																</Border>
 															</Border>
 														</Border>
@@ -154,14 +193,14 @@
 											</ItemsControl>
 										</ScrollViewer>
 
-										<Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
+										<Border Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom"
 												Margin="20" CornerRadius="10" Padding="10"
 												Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
 												Opacity="0.7" IsVisible="{Binding BrowserVersion, Converter={x:Static ObjectConverters.IsNotNull}}">
 											<SelectableTextBlock Text="{Binding BrowserVersion}" Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14" />
 										</Border>
 
-										<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" IsVisible="{Binding !Contexts.Count}">
+										<StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" IsVisible="{Binding !Contexts.Count}">
 											<TextBlock Text="No browser yet"
 													   FontSize="24"
 													   FontWeight="Light"
