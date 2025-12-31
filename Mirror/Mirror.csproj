@@ -2,12 +2,26 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 
     <PublishAot>true</PublishAot>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <DebugSymbols>False</DebugSymbols>
+    <DebugType>None</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'osx-x64'">
+    <UseMacOSBundle>true</UseMacOSBundle>
+    <MacOSBundleName>Mirror</MacOSBundleName>
+    <MacOSBundleDisplayName>Mirror</MacOSBundleDisplayName>
+    <MacOSBundleIdentifier>org.seleniumhq.mirror</MacOSBundleIdentifier>
+    <MacOSBundleVersion>1.0.0</MacOSBundleVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,9 +44,51 @@
     <PackageReference Include="Selenium.WebDriver" Version="4.39.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Update="Views\NetworkView.axaml.cs">
-      <DependentUpon>NetworkView.axaml</DependentUpon>
-    </Compile>
-  </ItemGroup>
+  <Target Name="CreateMacOSAppBundle"
+          AfterTargets="Publish"
+          Condition="'$(UseMacOSBundle)' == 'true' and ('$(RuntimeIdentifier)' == 'osx-x64' or '$(RuntimeIdentifier)' == 'osx-arm64')">
+    <PropertyGroup>
+      <MacOSAppBundleDir>$(PublishDir)$(MacOSBundleName).app</MacOSAppBundleDir>
+      <_InfoPlistContent><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>$(MacOSBundleDisplayName)</string>
+  <key>CFBundleDisplayName</key>
+  <string>$(MacOSBundleDisplayName)</string>
+  <key>CFBundleIdentifier</key>
+  <string>$(MacOSBundleIdentifier)</string>
+  <key>CFBundleVersion</key>
+  <string>$(MacOSBundleVersion)</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$(MacOSBundleVersion)</string>
+  <key>CFBundleExecutable</key>
+  <string>$(AssemblyName)</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>NSPrincipalClass</key>
+  <string>NSApplication</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+</dict>
+</plist>]]></_InfoPlistContent>
+    </PropertyGroup>
+
+    <RemoveDir Directories="$(MacOSAppBundleDir)" />
+    <MakeDir Directories="$(MacOSAppBundleDir)/Contents/MacOS" />
+    <MakeDir Directories="$(MacOSAppBundleDir)/Contents/Resources" />
+
+    <Copy SourceFiles="@(ResolvedFileToPublish)"
+          DestinationFiles="@(ResolvedFileToPublish->'$(MacOSAppBundleDir)/Contents/MacOS/%(RelativePath)')"
+          SkipUnchangedFiles="true" />
+
+    <WriteLinesToFile File="$(MacOSAppBundleDir)/Contents/Info.plist"
+                      Lines="$(_InfoPlistContent)"
+                      Overwrite="true" />
+
+    <WriteLinesToFile File="$(MacOSAppBundleDir)/Contents/PkgInfo"
+                      Lines="APPL????"
+                      Overwrite="true" />
+  </Target>
 </Project>
