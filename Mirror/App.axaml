@@ -2,13 +2,20 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Mirror.App"
              xmlns:local="using:Mirror"
+             Name="Mirror"
              RequestedThemeVariant="Default">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.DataTemplates>
         <local:ViewLocator/>
     </Application.DataTemplates>
-  
+
+    <NativeMenu.Menu>
+		<NativeMenu>
+			
+		</NativeMenu>
+	</NativeMenu.Menu>
+
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
