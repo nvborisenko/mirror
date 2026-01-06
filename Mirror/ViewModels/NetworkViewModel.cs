@@ -16,6 +16,8 @@ public partial class NetworkViewModel(BrowsingContext context) : ViewModelBase
 {
     public async Task InitializeAsync()
     {
+        await context.BiDi.Network.AddDataCollectorAsync([DataType.Request, DataType.Response], 500, new() { Contexts = [context] });
+
         await context.Network.OnBeforeRequestSentAsync(async e =>
         {
             var requestViewModel = new NetworkRequestViewModel(e);
@@ -57,9 +59,9 @@ public partial class NetworkViewModel(BrowsingContext context) : ViewModelBase
     }
 }
 
-public partial class NetworkRequestViewModel(OpenQA.Selenium.BiDi.Network.BeforeRequestSentEventArgs requestData) : ViewModelBase
+public partial class NetworkRequestViewModel(BeforeRequestSentEventArgs requestData) : ViewModelBase
 {
-    public OpenQA.Selenium.BiDi.Network.Request Request => requestData.Request.Request;
+    public Request Request => requestData.Request.Request;
 
     public string Method => requestData.Request.Method;
 
@@ -85,6 +87,60 @@ public partial class NetworkRequestViewModel(OpenQA.Selenium.BiDi.Network.Before
 
     [ObservableProperty]
     private IReadOnlyList<HeaderModel>? _responseHeaders;
+
+    [ObservableProperty]
+    private BytesValue? _requestBody;
+
+    [ObservableProperty]
+    private bool _isPreviewSelected;
+
+    partial void OnIsPreviewSelectedChanged(bool value)
+    {
+        if (value)
+        {
+            _ = LoadRequestBodyAsync();
+        }
+    }
+
+    [RelayCommand]
+    public async Task LoadRequestBodyAsync()
+    {
+        try
+        {
+            RequestBody = await requestData.BiDi.Network.GetDataAsync(DataType.Request, requestData.Request.Request);
+        }
+        catch (Exception ex)
+        {
+            RequestBody = ex.Message;
+        }
+    }
+
+    [ObservableProperty]
+    private BytesValue? _responseBody;
+
+    [ObservableProperty]
+    private bool _isResponseSelected;
+
+    partial void OnIsResponseSelectedChanged(bool value)
+    {
+        if (value)
+        {
+            _ = LoadResponseBodyAsync();
+        }
+    }
+
+    [RelayCommand]
+    public async Task LoadResponseBodyAsync()
+    {
+        try
+        {
+            ResponseBody = await requestData.BiDi.Network.GetDataAsync(DataType.Response, requestData.Request.Request);
+        }
+        catch (Exception ex)
+        {
+            ResponseBody = ex.Message;
+        }
+    }
 }
 
 public class HeaderModel(string name, string value)

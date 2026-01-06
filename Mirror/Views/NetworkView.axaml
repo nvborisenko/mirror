@@ -157,11 +157,11 @@
 													</Expander>
 												</StackPanel>
 											</TabItem>
-											<TabItem Header="Preview">
-
+											<TabItem Header="Preview" IsSelected="{Binding IsPreviewSelected, Mode=TwoWay}">
+												<TextBlock Text="{Binding RequestBody}" TextWrapping="Wrap" FontFamily="Consolas" Margin="10"/>
 											</TabItem>
-											<TabItem Header="Response">
-
+											<TabItem Header="Response" IsSelected="{Binding IsResponseSelected, Mode=TwoWay}">
+												<TextBlock Text="{Binding ResponseBody}" TextWrapping="Wrap" FontFamily="Consolas" Margin="10"/>
 											</TabItem>
 											<TabItem Header="Timing">
 
