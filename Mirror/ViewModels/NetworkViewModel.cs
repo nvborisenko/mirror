@@ -14,13 +14,15 @@ namespace Mirror.ViewModels;
 
 public partial class NetworkViewModel(BrowsingContext context) : ViewModelBase
 {
+    private Collector? _networkDataCollector = null!;
+
     public async Task InitializeAsync()
     {
-        await context.BiDi.Network.AddDataCollectorAsync([DataType.Request, DataType.Response], 500, new() { Contexts = [context] });
+        _networkDataCollector = await context.BiDi.Network.AddDataCollectorAsync([DataType.Request, DataType.Response], 300_000, new() { Contexts = [context] });
 
         await context.Network.OnBeforeRequestSentAsync(async e =>
         {
-            var requestViewModel = new NetworkRequestViewModel(e);
+            var requestViewModel = new NetworkRequestViewModel(e, _networkDataCollector);
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -59,7 +61,7 @@ public partial class NetworkViewModel(BrowsingContext context) : ViewModelBase
     }
 }
 
-public partial class NetworkRequestViewModel(BeforeRequestSentEventArgs requestData) : ViewModelBase
+public partial class NetworkRequestViewModel(BeforeRequestSentEventArgs requestData, Collector collector) : ViewModelBase
 {
     public Request Request => requestData.Request.Request;
 
@@ -107,7 +109,7 @@ public partial class NetworkRequestViewModel(BeforeRequestSentEventArgs requestD
     {
         try
         {
-            RequestBody = await requestData.BiDi.Network.GetDataAsync(DataType.Request, requestData.Request.Request);
+            RequestBody = await requestData.BiDi.Network.GetDataAsync(DataType.Request, requestData.Request.Request, new() { Collector = collector });
         }
         catch (Exception ex)
         {
@@ -134,7 +136,7 @@ public partial class NetworkRequestViewModel(BeforeRequestSentEventArgs requestD
     {
         try
         {
-            ResponseBody = await requestData.BiDi.Network.GetDataAsync(DataType.Response, requestData.Request.Request);
+            ResponseBody = await requestData.BiDi.Network.GetDataAsync(DataType.Response, requestData.Request.Request, new() { Collector = collector });
         }
         catch (Exception ex)
         {
