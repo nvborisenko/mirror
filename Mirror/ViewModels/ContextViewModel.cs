@@ -53,7 +53,11 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
             {
                 try
                 {
-                    var screenshot = await Context.CaptureScreenshotAsync(new() { Origin = ScreenshotOrigin.Viewport });
+                    var screenshot = await Context.CaptureScreenshotAsync(new()
+                    {
+                        Origin = ScreenshotOrigin.Viewport,
+                        Format = new ImageFormat("image/jpeg") { Quality = 0.5 }
+                    });
 
                     var data = screenshot.Data;
 
@@ -81,7 +85,7 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
                     // Ignore exceptions (e.g., context closed)
                 }
 
-                await Task.Delay(50);
+                await Task.Delay(300, _cancellationTokenSource.Token);
             }
         });
 
