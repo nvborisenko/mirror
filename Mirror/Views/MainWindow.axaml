@@ -27,12 +27,8 @@
 			<TransitioningContentControl.DataTemplates>
 				<!-- Main browser view -->
 				<DataTemplate DataType="vm:MainWindowViewModel">
-					<Grid RowDefinitions="*, 3*">
-						<StackPanel Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="60">
-							<TextBlock Text="The art of Selenium WebDriver BiDi" FontSize="40" FontWeight="ExtraLight" />
-						</StackPanel>
-
-						<TabControl Grid.Row="1" ItemsSource="{Binding Browsers}" SelectedItem="{Binding CurrentBrowser}">
+					<Grid Margin="0, 60, 0, 0">
+						<TabControl ItemsSource="{Binding Browsers}" SelectedItem="{Binding CurrentBrowser}">
 							<TabControl.Styles>
 								<Style Selector="TabControl /template/ WrapPanel"> <Setter Property="HorizontalAlignment" Value="Center"/> </Style>
 								<!-- Dim header content for unselected tabs with animated opacity -->
@@ -201,11 +197,7 @@
 										</Border>
 
 										<StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" IsVisible="{Binding !Contexts.Count}">
-											<TextBlock Text="No browser yet"
-													   FontSize="24"
-													   FontWeight="Light"
-													   HorizontalAlignment="Center"
-													   Opacity="0.6" />
+											<TextBlock Text="The art of Selenium WebDriver BiDi" FontSize="30" FontWeight="ExtraLight" />
 											<TextBlock Text="Click the Start button to create a new browser"
 													   FontSize="14"
 													   HorizontalAlignment="Center"
