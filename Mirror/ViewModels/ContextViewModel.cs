@@ -29,6 +29,9 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
     private ReadOnlyMemory<byte> _previousScreenshotData;
 
     [ObservableProperty]
+    private double _screenshotQuality = 0.6;
+
+    [ObservableProperty]
     private Bitmap _screenshot;
 
     [ObservableProperty]
@@ -56,7 +59,7 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
                     var screenshot = await Context.CaptureScreenshotAsync(new()
                     {
                         Origin = ScreenshotOrigin.Viewport,
-                        Format = new ImageFormat("image/jpeg") { Quality = 0.5 }
+                        Format = new ImageFormat("image/jpeg") { Quality = ScreenshotQuality }
                     });
 
                     var data = screenshot.Data;

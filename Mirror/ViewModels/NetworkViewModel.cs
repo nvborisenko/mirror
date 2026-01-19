@@ -18,7 +18,8 @@ public partial class NetworkViewModel(BrowsingContext context) : ViewModelBase
 
     public async Task InitializeAsync()
     {
-        _networkDataCollector = await context.BiDi.Network.AddDataCollectorAsync([DataType.Request, DataType.Response], 300_000, new() { Contexts = [context] });
+        var rrr = await context.BiDi.Network.AddDataCollectorAsync([DataType.Request, DataType.Response], 300_000, new() { Contexts = [context] });
+        _networkDataCollector = rrr.Collector;
 
         await context.Network.OnBeforeRequestSentAsync(async e =>
         {

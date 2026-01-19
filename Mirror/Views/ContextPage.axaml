@@ -43,6 +43,7 @@
 						<StackPanel Orientation="Horizontal" Spacing="10" Opacity="0.6" Margin="5">
 							<Button Content="selenium.dev" Command="{Binding NavigateCommand}" CommandParameter="https://www.selenium.dev" Background="Transparent"/>
 							<Button Content="google.com" Command="{Binding NavigateCommand}" CommandParameter="https://www.google.com" Background="Transparent"/>
+							<Button Content="kleki.com" Command="{Binding NavigateCommand}" CommandParameter="https://www.kleki.com" Background="Transparent"/>
 						</StackPanel>
 					</StackPanel>
 				</Border>
@@ -53,7 +54,21 @@
 		<Grid Grid.Row="1" Grid.ColumnDefinitions="2*, Auto, *">
 
 			<Grid>
-				<Image Source="{Binding Screenshot}" Margin="30" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="HighQuality" />
+				<Image x:Name="ScreenshotImage" Source="{Binding Screenshot}" Margin="30" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="HighQuality" PointerMoved="OnImagePointerMoved" PointerPressed="OnImagePointerPressed" PointerReleased="OnImagePointerReleased" PointerWheelChanged="OnImagePointerWheelChanged" KeyDown="OnImageKeyDown" KeyUp="OnImageKeyUp" SizeChanged="OnImageSizeChanged" Focusable="True" />
+				
+				<Border Opacity="0.6" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="6" CornerRadius="8" Padding="6">
+					<StackPanel Orientation="Horizontal" Spacing="10">
+						<TextBlock FontSize="12" Opacity="0.7" VerticalAlignment="Center">
+							<Run x:Name="Size" />
+							<Run x:Name="X" />
+							<Run x:Name="Y" />
+						</TextBlock>
+						<StackPanel Orientation="Horizontal" Spacing="5">
+							<Slider Width="100" Minimum="0" Maximum="1" Value="{Binding ScreenshotQuality}" ToolTip.Tip="Screencast quality" />
+							<TextBlock Text="{Binding ScreenshotQuality, StringFormat='{}{0:P0}'}" FontSize="12" Opacity="0.7" VerticalAlignment="Center" />
+						</StackPanel>
+					</StackPanel>
+				</Border>
 			</Grid>
 
 			<GridSplitter Grid.Column="1" />
