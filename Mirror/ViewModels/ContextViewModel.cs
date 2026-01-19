@@ -41,13 +41,10 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
     {
         await Context.OnLoadAsync(async e =>
         {
-            if (e.Context.Equals(Context))
-            {
                 if (!_cancellationTokenSource.Token.IsCancellationRequested)
                 {
                     Title = await e.Context.Script.EvaluateAsync<string>("document.title", true) ?? DefaultTitle;
                 }
-            }
         });
 
         _screenshotTask = Task.Run(async () =>
