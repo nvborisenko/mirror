@@ -24,7 +24,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private ViewModelBase? _currentView;
 
     [ObservableProperty]
-    private BrowserViewModel _currentBrowser;
+    private BrowserViewModel _currentBrowser = null!;
 
     [ObservableProperty]
     private object _displayContent;

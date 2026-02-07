@@ -62,6 +62,7 @@ public partial class MainWindow : Window
     private void ButtonSpinner_Spin(object? sender, SpinEventArgs e)
     {
         var vm = DataContext as MainWindowViewModel;
+        if (vm?.CurrentBrowser == null) return;
 
         if (e.Direction == SpinDirection.Increase)
         {

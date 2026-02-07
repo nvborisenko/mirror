@@ -102,7 +102,7 @@ public partial class ContextPage : UserControl
     {
         var vm = this.DataContext as ContextViewModel;
 
-        if (e.KeySymbol is not null && e.KeySymbol.Length > 1)
+        if (e.KeySymbol is null || e.KeySymbol.Length > 1)
             return;
 
         var key = e.KeySymbol[0];
@@ -116,7 +116,7 @@ public partial class ContextPage : UserControl
     {
         var vm = this.DataContext as ContextViewModel;
 
-        if (e.KeySymbol is not null && e.KeySymbol.Length > 1)
+        if (e.KeySymbol is null || e.KeySymbol.Length > 1)
             return;
 
         var key = e.KeySymbol[0];

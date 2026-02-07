@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -32,6 +33,7 @@ namespace Mirror
             base.OnFrameworkInitializationCompleted();
         }
 
+        [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access", Justification = "DataValidators is accessed for Avalonia validation management")]
         private void DisableAvaloniaDataAnnotationValidation()
         {
             // Get an array of plugins to remove

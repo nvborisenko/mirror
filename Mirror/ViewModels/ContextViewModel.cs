@@ -26,14 +26,14 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
 
     const string DefaultTitle = "New Tab";
 
-    private Task _screenshotTask;
+    private Task _screenshotTask = null!;
     private ulong _previousScreenshotHash;
 
     [ObservableProperty]
     private double _screenshotQuality = 0.6;
 
     [ObservableProperty]
-    private Bitmap _screenshot;
+    private Bitmap _screenshot = null!;
 
     [ObservableProperty]
     private string _title = DefaultTitle;
@@ -82,7 +82,7 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
                         }, DispatcherPriority.Background);
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     // Ignore exceptions (e.g., context closed)
                 }

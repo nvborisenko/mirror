@@ -41,7 +41,7 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
     private bool _isIsolated = false;
 
     [ObservableProperty]
-    private string _browserVersion;
+    private string _browserVersion = string.Empty;
 
     private bool CanStartBrowser() => !IsBusy;
 
@@ -53,14 +53,14 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
 
     private static readonly SemaphoreSlim _semaphoreStartBrowser = new(1, 1);
 
-    private async Task<BrowsingContext> StartBrowserCore()
+    private async Task<BrowsingContext?> StartBrowserCore()
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 IsBusy = true;
             });
 
-        BrowsingContext createdContext = null;
+        BrowsingContext? createdContext = null;
 
         try
         {
@@ -128,12 +128,21 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
 
                         _webDriver = new OpenQA.Selenium.Edge.EdgeDriver(driverService, options);
                     }
+                    else
+                    {
+                        throw new NotSupportedException($"Browser type {type.Name} is not supported");
+                    }
 
                     BrowserVersion = ((IHasCapabilities)_webDriver).Capabilities.GetCapability("browserVersion")?.ToString() ?? "Unknown";
 
-                    _bidi = await _webDriver.AsBiDiAsync();
+                    var bidi = await _webDriver.AsBiDiAsync();
+                    if (bidi == null)
+                    {
+                        throw new InvalidOperationException("Failed to initialize BiDi connection");
+                    }
+                    _bidi = bidi;
 
-                    createdContext = (await _bidi.BrowsingContext.GetTreeAsync()).Contexts[0].Context;
+                    createdContext = (await bidi.BrowsingContext.GetTreeAsync()).Contexts[0].Context;
 
                     var firstContext = new ContextViewModel(createdContext);
 
@@ -215,13 +224,13 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
                 {
                     if (IsIsolated)
                     {
-                        var userContext = await _bidi.Browser.CreateUserContextAsync();
+                        var userContext = await _bidi!.Browser.CreateUserContextAsync();
 
-                        createdContext = (await _bidi.BrowsingContext.CreateAsync(ContextType.Tab, new() { UserContext = userContext.UserContext })).Context;
+                        createdContext = (await _bidi!.BrowsingContext.CreateAsync(ContextType.Tab, new() { UserContext = userContext.UserContext })).Context;
                     }
                     else
                     {
-                        createdContext = (await _bidi.BrowsingContext.CreateAsync(ContextType.Tab)).Context;
+                        createdContext = (await _bidi!.BrowsingContext.CreateAsync(ContextType.Tab)).Context;
                     }
                 }
             });
@@ -303,6 +312,10 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
     private async Task EmulationScenarioAsync()
     {
         var context = await StartBrowserCore();
+        if (context == null)
+        {
+            throw new InvalidOperationException("Failed to create browser context");
+        }
         await context.NavigateAsync("https://nuget.org", new() { Wait = ReadinessState.Complete });
         //await Task.Delay(3_000);
         await context.CloseAsync();
