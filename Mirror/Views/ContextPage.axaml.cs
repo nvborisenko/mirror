@@ -3,11 +3,15 @@ using Avalonia.Input;
 using Mirror.ViewModels;
 using OpenQA.Selenium.BiDi.BrowsingContext;
 using OpenQA.Selenium.BiDi.Input;
+using System;
 
 namespace Mirror.Views;
 
 public partial class ContextPage : UserControl
 {
+    private DateTime _lastMouseMoveTime = DateTime.MinValue;
+    private const int MouseMoveThrottleMs = 50; // Max 20 updates/sec
+
     public ContextPage()
     {
         InitializeComponent();
@@ -18,6 +22,14 @@ public partial class ContextPage : UserControl
         if (sender is Image image)
         {
             var position = e.GetPosition(image);
+
+            // Throttle mouse move to reduce BiDi traffic
+            var now = DateTime.UtcNow;
+            if ((now - _lastMouseMoveTime).TotalMilliseconds < MouseMoveThrottleMs)
+                return;
+
+            _lastMouseMoveTime = now;
+
             X.Text = $"X: {position.X:F0}";
             Y.Text = $"Y: {position.Y:F0}";
 
