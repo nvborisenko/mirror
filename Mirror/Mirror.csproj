@@ -42,11 +42,10 @@
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="Selenium.WebDriver" Version="4.40.0" />
+    <PackageReference Include="System.IO.Hashing" Version="10.0.2" />
   </ItemGroup>
 
-  <Target Name="CreateMacOSAppBundle"
-          AfterTargets="Publish"
-          Condition="'$(UseMacOSBundle)' == 'true' and ('$(RuntimeIdentifier)' == 'osx-x64' or '$(RuntimeIdentifier)' == 'osx-arm64')">
+  <Target Name="CreateMacOSAppBundle" AfterTargets="Publish" Condition="'$(UseMacOSBundle)' == 'true' and ('$(RuntimeIdentifier)' == 'osx-x64' or '$(RuntimeIdentifier)' == 'osx-arm64')">
     <PropertyGroup>
       <MacOSAppBundleDir>$(PublishDir)$(MacOSBundleName).app</MacOSAppBundleDir>
       <_InfoPlistContent><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
@@ -79,16 +78,10 @@
     <MakeDir Directories="$(MacOSAppBundleDir)/Contents/MacOS" />
     <MakeDir Directories="$(MacOSAppBundleDir)/Contents/Resources" />
 
-    <Copy SourceFiles="@(ResolvedFileToPublish)"
-          DestinationFiles="@(ResolvedFileToPublish->'$(MacOSAppBundleDir)/Contents/MacOS/%(RelativePath)')"
-          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(ResolvedFileToPublish)" DestinationFiles="@(ResolvedFileToPublish->'$(MacOSAppBundleDir)/Contents/MacOS/%(RelativePath)')" SkipUnchangedFiles="true" />
 
-    <WriteLinesToFile File="$(MacOSAppBundleDir)/Contents/Info.plist"
-                      Lines="$(_InfoPlistContent)"
-                      Overwrite="true" />
+    <WriteLinesToFile File="$(MacOSAppBundleDir)/Contents/Info.plist" Lines="$(_InfoPlistContent)" Overwrite="true" />
 
-    <WriteLinesToFile File="$(MacOSAppBundleDir)/Contents/PkgInfo"
-                      Lines="APPL????"
-                      Overwrite="true" />
+    <WriteLinesToFile File="$(MacOSAppBundleDir)/Contents/PkgInfo" Lines="APPL????" Overwrite="true" />
   </Target>
 </Project>

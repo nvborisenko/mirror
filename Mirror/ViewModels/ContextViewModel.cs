@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using OpenQA.Selenium.BiDi.BrowsingContext;
 using System;
 using System.IO;
+using System.IO.Hashing;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using CommunityToolkit.Mvvm.Input;
@@ -26,7 +27,7 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
     const string DefaultTitle = "New Tab";
 
     private Task _screenshotTask;
-    private ReadOnlyMemory<byte> _previousScreenshotData;
+    private ulong _previousScreenshotHash;
 
     [ObservableProperty]
     private double _screenshotQuality = 0.6;
@@ -61,10 +62,11 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
 
                     var data = screenshot.Data;
 
-                    // Compare with previous screenshot data
-                    if (!data.Span.SequenceEqual(_previousScreenshotData.Span))
+                    // Fast hash-based comparison
+                    var currentHash = XxHash64.HashToUInt64(data.Span);
+                    if (currentHash != _previousScreenshotHash)
                     {
-                        _previousScreenshotData = data;
+                        _previousScreenshotHash = currentHash;
                         Bitmap bitmap;
 
                         MemoryMarshal.TryGetArray(data, out var segment);
