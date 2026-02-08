@@ -316,7 +316,7 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
         {
             throw new InvalidOperationException("Failed to create browser context");
         }
-        await context.NavigateAsync("https://nuget.org", new() { Wait = ReadinessState.Interactive });
+        await context.NavigateAsync("https://nuget.org", new() { Wait = ReadinessState.Complete });
         var inputNode = (await context.LocateNodesAsync(new CssLocator("[name='q']"))).Nodes[0];
 
         await context.Input.PerformActionsAsync([
@@ -332,15 +332,15 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
                 .Type("Selenium")
         ]);
 
-        var searchButton = (await context.LocateNodesAsync(new CssLocator("[type='submit']"))).Nodes[0];
+        var searchButton = (await context.LocateNodesAsync(new CssLocator("button.btn-search"))).Nodes[0];
 
-        var taskCompletionSource = new TaskCompletionSource<bool>();
+        var pageLoadedTaskCompletionSource = new TaskCompletionSource<bool>();
 
         await using var _ = await context.OnDomContentLoadedAsync(e =>
         {
             if (e.Url.Contains("q=Selenium", StringComparison.OrdinalIgnoreCase))
             {
-                taskCompletionSource.TrySetResult(true);
+                pageLoadedTaskCompletionSource.TrySetResult(true);
             }
         });
 
@@ -352,9 +352,9 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
             }
         ]);
 
-        await taskCompletionSource.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        await pageLoadedTaskCompletionSource.Task.WaitAsync(TimeSpan.FromSeconds(30));
 
-        await Task.Delay(3_000);
+        await Task.Delay(1_000);
 
         await context.CloseAsync();
     }
