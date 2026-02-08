@@ -316,8 +316,46 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
         {
             throw new InvalidOperationException("Failed to create browser context");
         }
-        await context.NavigateAsync("https://nuget.org", new() { Wait = ReadinessState.Complete });
-        //await Task.Delay(3_000);
+        await context.NavigateAsync("https://nuget.org", new() { Wait = ReadinessState.Interactive });
+        var inputNode = (await context.LocateNodesAsync(new CssLocator("[name='q']"))).Nodes[0];
+
+        await context.Input.PerformActionsAsync([
+            new OpenQA.Selenium.BiDi.Input.PointerActions("pointer"){
+                new OpenQA.Selenium.BiDi.Input.MovePointer(0, 0) { Origin = new OpenQA.Selenium.BiDi.Input.ElementOrigin(inputNode)},
+                new OpenQA.Selenium.BiDi.Input.DownPointer(0),
+                new OpenQA.Selenium.BiDi.Input.UpPointer(0)
+            }
+        ]);
+
+        await context.Input.PerformActionsAsync([
+            new OpenQA.Selenium.BiDi.Input.KeyActions("keyboard")
+                .Type("Selenium")
+        ]);
+
+        var searchButton = (await context.LocateNodesAsync(new CssLocator("[type='submit']"))).Nodes[0];
+
+        var taskCompletionSource = new TaskCompletionSource<bool>();
+
+        await using var _ = await context.OnDomContentLoadedAsync(e =>
+        {
+            if (e.Url.Contains("q=Selenium", StringComparison.OrdinalIgnoreCase))
+            {
+                taskCompletionSource.TrySetResult(true);
+            }
+        });
+
+        await context.Input.PerformActionsAsync([
+            new OpenQA.Selenium.BiDi.Input.PointerActions("pointer2"){
+                new OpenQA.Selenium.BiDi.Input.MovePointer(0, 0) { Origin = new OpenQA.Selenium.BiDi.Input.ElementOrigin(searchButton)},
+                new OpenQA.Selenium.BiDi.Input.DownPointer(0),
+                new OpenQA.Selenium.BiDi.Input.UpPointer(0)
+            }
+        ]);
+
+        await taskCompletionSource.Task.WaitAsync(TimeSpan.FromSeconds(30));
+
+        await Task.Delay(3_000);
+
         await context.CloseAsync();
     }
 }
