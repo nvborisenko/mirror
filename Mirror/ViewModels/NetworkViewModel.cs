@@ -1,6 +1,7 @@
 ﻿using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using OpenQA.Selenium.BiDi;
 using OpenQA.Selenium.BiDi.BrowsingContext;
 using OpenQA.Selenium.BiDi.Network;
 using System;
@@ -12,16 +13,18 @@ using System.Threading.Tasks;
 
 namespace Mirror.ViewModels;
 
-public partial class NetworkViewModel(BrowsingContext context) : ViewModelBase
+public partial class NetworkViewModel(BrowsingContext context) : ViewModelBase, IAsyncDisposable
 {
     private Collector? _networkDataCollector = null!;
 
+    private Subscription? _onBeforeRequestSubscription;
+    private Subscription? _onResponseCompletedSubscription;
     public async Task InitializeAsync()
     {
         var dataCollectorResult = await context.BiDi.Network.AddDataCollectorAsync([DataType.Request, DataType.Response], 300_000, new() { Contexts = [context] });
         _networkDataCollector = dataCollectorResult.Collector;
 
-        await context.Network.OnBeforeRequestSentAsync(async e =>
+        _onBeforeRequestSubscription = await context.Network.OnBeforeRequestSentAsync(async e =>
         {
             var requestViewModel = new NetworkRequestViewModel(e, _networkDataCollector);
 
@@ -31,7 +34,7 @@ public partial class NetworkViewModel(BrowsingContext context) : ViewModelBase
             });
         });
 
-        await context.Network.OnResponseCompletedAsync(async e =>
+        _onResponseCompletedSubscription = await context.Network.OnResponseCompletedAsync(async e =>
         {
             var requestViewModel = Requests.FirstOrDefault(r => r.Request.Id == e.Request.Request.Id);
 
@@ -59,6 +62,24 @@ public partial class NetworkViewModel(BrowsingContext context) : ViewModelBase
     public async Task ChangeCache(bool disabled)
     {
         await context.Network.SetCacheBehaviorAsync(disabled ? OpenQA.Selenium.BiDi.Network.CacheBehavior.Bypass : OpenQA.Selenium.BiDi.Network.CacheBehavior.Default);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_onBeforeRequestSubscription is not null)
+        {
+            await _onBeforeRequestSubscription.DisposeAsync();
+        }
+
+        if (_onResponseCompletedSubscription is not null)
+        {
+            await _onResponseCompletedSubscription.DisposeAsync();
+        }
+
+        if (_networkDataCollector is not null)
+        {
+            await _networkDataCollector.BiDi.Network.RemoveDataCollectorAsync(_networkDataCollector);
+        }
     }
 }
 

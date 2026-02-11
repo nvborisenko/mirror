@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using CommunityToolkit.Mvvm.Input;
 using System.Threading;
+using OpenQA.Selenium.BiDi;
 
 namespace Mirror.ViewModels;
 
@@ -38,14 +39,16 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
     [ObservableProperty]
     private string _title = DefaultTitle;
 
+    private Subscription? _onLoadSubscription;
+
     public async Task InitializeAsync()
     {
-        await Context.OnLoadAsync(async e =>
+        _onLoadSubscription = await Context.OnLoadAsync(async e =>
         {
-                if (!_cancellationTokenSource.Token.IsCancellationRequested)
-                {
-                    Title = await e.Context.Script.EvaluateAsync<string>("document.title", true) ?? DefaultTitle;
-                }
+            if (!_cancellationTokenSource.Token.IsCancellationRequested)
+            {
+                Title = await e.Context.Script.EvaluateAsync<string>("document.title", true) ?? DefaultTitle;
+            }
         });
 
         _screenshotTask = Task.Run(async () =>
@@ -112,6 +115,13 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (_onLoadSubscription is not null)
+        {
+            await _onLoadSubscription.DisposeAsync();
+        }
+
+        await NetworkViewModel.DisposeAsync();
+
         await _cancellationTokenSource.CancelAsync();
 
         _cancellationTokenSource.Dispose();
