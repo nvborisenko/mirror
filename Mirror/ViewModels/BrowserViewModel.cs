@@ -285,7 +285,7 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
     }
 
     [ObservableProperty]
-    private int _emulationThreads = 20;
+    private int _emulationThreads = 10;
 
     private bool CanStartEmulation() => !IsBusy && Contexts.Count > 0;
 
@@ -293,7 +293,7 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
     private int _emulationDurationSeconds;
 
     [RelayCommand(CanExecute = nameof(CanStartEmulation))]
-    public async Task StartEmulation()
+    public async Task StartEmulationAsync()
     {
         var sw = Stopwatch.StartNew();
 
