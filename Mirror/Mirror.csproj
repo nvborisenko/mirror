@@ -41,7 +41,7 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageReference Include="Selenium.WebDriver" Version="4.40.0" />
+    <PackageReference Include="Selenium.WebDriver" Version="4.41.0" />
     <PackageReference Include="System.IO.Hashing" Version="10.0.2" />
   </ItemGroup>
 

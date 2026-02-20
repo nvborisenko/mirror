@@ -321,9 +321,9 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
 
         await context.Input.PerformActionsAsync([
             new OpenQA.Selenium.BiDi.Input.PointerActions("pointer"){
-                new OpenQA.Selenium.BiDi.Input.MovePointer(0, 0) { Origin = new OpenQA.Selenium.BiDi.Input.ElementOrigin(inputNode)},
-                new OpenQA.Selenium.BiDi.Input.DownPointer(0),
-                new OpenQA.Selenium.BiDi.Input.UpPointer(0)
+                new OpenQA.Selenium.BiDi.Input.PointerMoveAction(0, 0) { Origin = new OpenQA.Selenium.BiDi.Input.ElementOrigin(inputNode)},
+                new OpenQA.Selenium.BiDi.Input.PointerDownAction(0),
+                new OpenQA.Selenium.BiDi.Input.PointerUpAction(0)
             }
         ]);
 
@@ -346,9 +346,9 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
 
         await context.Input.PerformActionsAsync([
             new OpenQA.Selenium.BiDi.Input.PointerActions("pointer2"){
-                new OpenQA.Selenium.BiDi.Input.MovePointer(0, 0) { Origin = new OpenQA.Selenium.BiDi.Input.ElementOrigin(searchButton)},
-                new OpenQA.Selenium.BiDi.Input.DownPointer(0),
-                new OpenQA.Selenium.BiDi.Input.UpPointer(0)
+                new OpenQA.Selenium.BiDi.Input.PointerMoveAction(0, 0) { Origin = new OpenQA.Selenium.BiDi.Input.ElementOrigin(searchButton)},
+                new OpenQA.Selenium.BiDi.Input.PointerDownAction(0),
+                new OpenQA.Selenium.BiDi.Input.PointerUpAction(0)
             }
         ]);
 

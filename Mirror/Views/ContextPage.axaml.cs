@@ -36,7 +36,7 @@ public partial class ContextPage : UserControl
             var vm = this.DataContext as ContextViewModel;
 
             await vm!.Context.Input.PerformActionsAsync([new PointerActions("mirror-pointer"){
-                new MovePointer((int)position.X, (int)position.Y)
+                new PointerMoveAction((int)position.X, (int)position.Y)
             }]);
         }
     }
@@ -58,8 +58,8 @@ public partial class ContextPage : UserControl
             var vm = this.DataContext as ContextViewModel;
 
             await vm!.Context.Input.PerformActionsAsync([new PointerActions("mirror-pointer"){
-                new MovePointer((int)position.X, (int)position.Y),
-                new DownPointer(0)
+                new PointerMoveAction((int)position.X, (int)position.Y),
+                new PointerDownAction(0)
             }]);
 
             Size.Text = "Pressed";
@@ -74,8 +74,8 @@ public partial class ContextPage : UserControl
             var vm = this.DataContext as ContextViewModel;
 
             await vm!.Context.Input.PerformActionsAsync([new PointerActions("mirror-pointer"){
-                new MovePointer((int)position.X, (int)position.Y),
-                new UpPointer(0)
+                new PointerMoveAction((int)position.X, (int)position.Y),
+                new PointerUpAction(0)
             }]);
 
             await vm!.Context.Input.ReleaseActionsAsync();
@@ -93,7 +93,7 @@ public partial class ContextPage : UserControl
             var delta = e.Delta;
 
             await vm!.Context.Input.PerformActionsAsync([new WheelActions("mirror-wheel"){
-                new ScrollWheel((int)position.X, (int)position.Y, -(int)(delta.X * 100), -(int)(delta.Y * 100))
+                new WheelScrollAction((int)position.X, (int)position.Y, -(int)(delta.X * 100), -(int)(delta.Y * 100))
             }]);
         }
     }
@@ -108,7 +108,7 @@ public partial class ContextPage : UserControl
         var key = e.KeySymbol[0];
 
         await vm!.Context.Input.PerformActionsAsync([new KeyActions("mirror-keyboard"){
-            new DownKey(key)
+            new KeyDownAction(key)
         }]);
     }
 
@@ -122,7 +122,7 @@ public partial class ContextPage : UserControl
         var key = e.KeySymbol[0];
 
         await vm!.Context.Input.PerformActionsAsync([new KeyActions("mirror-keyboard"){
-            new UpKey(key)
+            new KeyUpAction(key)
         }]);
 
         await vm!.Context.Input.ReleaseActionsAsync();
