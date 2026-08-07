@@ -5,9 +5,15 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OpenQA.Selenium;
 using OpenQA.Selenium.BiDi;
+using OpenQA.Selenium.BiDi.Browser;
 using OpenQA.Selenium.BiDi.BrowsingContext;
+using OpenQA.Selenium.BiDi.Input;
+using OpenQA.Selenium.BiDi.Network;
+using OpenQA.Selenium.BiDi.Script;
+using Selenium.WebDriver.BiDi.Cdp;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -16,16 +22,22 @@ using System.Threading.Tasks;
 
 namespace Mirror.ViewModels;
 
-public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, Type type, string logoPath) : ViewModelBase
+public partial class BrowserViewModel(Type type, string logoPath) : ViewModelBase
 {
     private IWebDriver? _webDriver;
-    private BiDi? _bidi;
+    private IBiDi? _bidi;
+    private Collector? _networkDataCollector;
+    private ISubscription? _subscription;
+    private IEventStream<MessageEventArgs>? _messageStream;
+    private PreloadScript? _preloadScript;
+    private Task? _messageDispatchTask;
+
+    public event Action<ContextViewModel>? ContextDestroyed;
 
     public Bitmap LogoPath { get; } = new(AssetLoader.Open(new Uri(logoPath)));
 
-    private readonly SemaphoreSlim _contextsLock = new(1, 1);
     public ObservableCollection<ContextViewModel> Contexts { get; } = [];
-
+    private readonly Dictionary<BrowsingContext, ContextViewModel> _contextMap = [];
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartBrowserCommand), nameof(StartEmulationCommand))]
@@ -135,102 +147,39 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
 
                     BrowserVersion = ((IHasCapabilities)_webDriver).Capabilities.GetCapability("browserVersion")?.ToString() ?? "Unknown";
 
-                    var bidi = await _webDriver.AsBiDiAsync();
-                    if (bidi == null)
-                    {
-                        throw new InvalidOperationException("Failed to initialize BiDi connection");
-                    }
-                    _bidi = bidi;
+                    _bidi = await _webDriver.AsBiDiAsync() ?? throw new InvalidOperationException("Failed to initialize BiDi connection");
 
-                    createdContext = (await bidi.BrowsingContext.GetTreeAsync()).Contexts[0].Context;
+                    await InitializeBiDiAsync();
+
+                    createdContext = (await _bidi.BrowsingContext.GetTreeAsync()).Contexts[0].Context;
 
                     var firstContext = new ContextViewModel(createdContext);
 
                     await firstContext.InitializeAsync();
 
+                    // Inject screencast script into the first context (preload script only applies to future navigations)
+                    var channelArg = new ChannelLocalValue(new ChannelProperties(_screencastChannel!));
+                    await createdContext.Script.CallFunctionAsync(ScreencastScript, false, new CallFunctionOptions { Arguments = [channelArg] });
+
+                    _contextMap[createdContext] = firstContext;
+
                     // Update UI from background thread
-                    await Dispatcher.UIThread.InvokeAsync(async () =>
+                    await Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        await _contextsLock.WaitAsync();
-                        try
-                        {
-                            Contexts.Add(firstContext);
-                        }
-                        finally
-                        {
-                            _contextsLock.Release();
-                        }
-                    });
-
-                    await _bidi.BrowsingContext.OnContextCreatedAsync(async e =>
-                    {
-                        if (e.Parent is null && !Contexts.Any(c => c.Context.Equals(e.Context)))
-                        {
-                            var vm = new ContextViewModel(e.Context);
-
-                            await vm.InitializeAsync();
-
-                            // Update UI from background thread
-                            await Dispatcher.UIThread.InvokeAsync(async () =>
-                            {
-                                await _contextsLock.WaitAsync();
-                                try
-                                {
-                                    Contexts.Add(vm);
-                                }
-                                finally
-                                {
-                                    _contextsLock.Release();
-                                }
-                            });
-                        }
-                    });
-
-                    await _bidi.BrowsingContext.OnContextDestroyedAsync(async e =>
-                    {
-                        var vm = Contexts.FirstOrDefault(vm => vm.Context.Equals(e.Context));
-
-                        if (vm is not null)
-                        {
-                            await vm.DisposeAsync();
-
-                            // Update UI from background thread
-                            await Dispatcher.UIThread.InvokeAsync(async () =>
-                            {
-                                await _contextsLock.WaitAsync();
-                                try
-                                {
-                                    Contexts.Remove(vm);
-                                }
-                                finally
-                                {
-                                    _contextsLock.Release();
-                                }
-                            });
-                        }
-
-                        if (mainWindowViewModel.CurrentView is ContextViewModel contextViewModel && contextViewModel.Equals(vm))
-                        {
-                            mainWindowViewModel.CurrentView = null;
-                        }
-
-                        if (Contexts.Count == 0)
-                        {
-                            await StopBrowser();
-                        }
+                        Contexts.Add(firstContext);
                     });
                 }
-                else
+                else if (_bidi is not null)
                 {
                     if (IsIsolated)
                     {
-                        var userContext = await _bidi!.Browser.CreateUserContextAsync();
+                        var userContext = await _bidi.Browser.CreateUserContextAsync();
 
-                        createdContext = (await _bidi!.BrowsingContext.CreateAsync(ContextType.Tab, new() { UserContext = userContext.UserContext })).Context;
+                        createdContext = (await _bidi.BrowsingContext.CreateAsync(ContextType.Tab, new() { UserContext = userContext.UserContext })).Context;
                     }
                     else
                     {
-                        createdContext = (await _bidi!.BrowsingContext.CreateAsync(ContextType.Tab)).Context;
+                        createdContext = (await _bidi.BrowsingContext.CreateAsync(ContextType.Tab)).Context;
                     }
                 }
             });
@@ -251,37 +200,169 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
     [RelayCommand]
     private async Task StopBrowser()
     {
-        await _contextsLock.WaitAsync();
-
-        try
+        // Snapshot and clear the Contexts collection first so no new events add to it
+        ContextViewModel[] contextsToDispose = [];
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            await Task.Run(async () =>
+            contextsToDispose = [.. Contexts];
+            Contexts.Clear();
+        });
+
+        // Dispose all context view models (stops screenshot loops, releases subscriptions)
+        foreach (var ctx in contextsToDispose)
+            await ctx.DisposeAsync();
+
+        await Task.Run(async () =>
+        {
+            if (_bidi is not null)
             {
-                if (_bidi is not null)
+                if (_messageStream is not null)
                 {
-                    try
-                    {
-                        // await _bidi.DisposeAsync();
-                    }
-                    catch (Exception)
-                    {
-                        // Ignore exceptions during disposal
-                    }
-                    finally
-                    {
-                        _bidi = null;
-                    }
+                    await _messageStream.DisposeAsync();
+                    _messageStream = null;
                 }
 
-                _webDriver?.Dispose();
+                if (_messageDispatchTask is not null)
+                {
+                    try { await _messageDispatchTask; } catch { }
+                    _messageDispatchTask = null;
+                }
 
-                _webDriver = null;
-            });
+                if (_preloadScript is not null)
+                {
+                    try { await _bidi.Script.RemovePreloadScriptAsync(_preloadScript); } catch { }
+                    _preloadScript = null;
+                }
+
+                if (_subscription is not null)
+                {
+                    await _subscription.DisposeAsync();
+                    _subscription = null;
+                }
+
+                if (_networkDataCollector is not null)
+                {
+                    await _bidi.Network.RemoveDataCollectorAsync(_networkDataCollector);
+                    _networkDataCollector = null;
+                }
+
+                await _bidi.DisposeAsync();
+                _bidi = null;
+            }
+
+            _webDriver?.Dispose();
+
+            _webDriver = null;
+        });
+    }
+
+    private static readonly string ScreencastScript = """
+    (channel) => {
+      let dirty = true;
+      function markDirty() { dirty = true; }
+
+      setInterval(() => {
+        if (dirty) {
+          dirty = false;
+          channel('d');
         }
-        finally
+      }, 100);
+
+      new MutationObserver(markDirty).observe(document, {
+        subtree: true, childList: true, attributes: true,
+        characterData: true
+      });
+
+      window.addEventListener('scroll', markDirty, { capture: true, passive: true });
+      window.addEventListener('load', markDirty);
+      window.addEventListener('DOMContentLoaded', markDirty);
+
+      if (document.documentElement) {
+        new ResizeObserver(markDirty).observe(document.documentElement);
+      }
+
+      document.addEventListener('animationstart', markDirty, true);
+      document.addEventListener('transitionrun', markDirty, true);
+      document.addEventListener('input', markDirty, true);
+      document.addEventListener('play', markDirty, true);
+    }
+    """;
+
+    private Channel? _screencastChannel;
+
+    private async Task InitializeBiDiAsync()
+    {
+        var dataCollectorResult = await _bidi!.Network.AddDataCollectorAsync([DataType.Request, DataType.Response], 300_000);
+        _networkDataCollector = dataCollectorResult.Collector;
+
+        // Install global screencast preload script
+        _screencastChannel = new Channel(_bidi, "mirror-screencast");
+        var channelArg = new ChannelLocalValue(new ChannelProperties(_screencastChannel));
+
+        var preloadResult = await _bidi.Script.AddPreloadScriptAsync(
+            ScreencastScript,
+            new AddPreloadScriptOptions { Arguments = [channelArg] });
+        _preloadScript = preloadResult.Script;
+
+        // Subscribe to script.message globally and dispatch to contexts
+        _messageStream = await _bidi.Script.Message.StreamAsync();
+        _messageDispatchTask = Task.Run(async () =>
         {
-            _contextsLock.Release();
-        }
+            try
+            {
+                await foreach (var msg in _messageStream.ReadAllAsync())
+                {
+                    if (msg.Channel.Id != _screencastChannel!.Id) continue;
+                    if (msg.Source.Context is not null && _contextMap.TryGetValue(msg.Source.Context, out var vm))
+                    {
+                        vm.RequestCapture();
+                    }
+                }
+            }
+            catch { }
+        });
+
+        _subscription = await _bidi.SubscribeAsync<OpenQA.Selenium.BiDi.EventArgs>(
+            [
+                NetworkEvent.BeforeRequestSent,
+                NetworkEvent.ResponseCompleted,
+                BrowsingContextEvent.ContextCreated,
+                BrowsingContextEvent.ContextDestroyed,
+            ],
+            async e =>
+            {
+                switch (e)
+                {
+                    case ContextCreatedEventArgs created:
+                        if (created.Parent is null && !_contextMap.ContainsKey(created.Context))
+                        {
+                            var vm = new ContextViewModel(created.Context);
+                            _contextMap[created.Context] = vm;
+                            await Dispatcher.UIThread.InvokeAsync(() => Contexts.Add(vm));
+                            await vm.InitializeAsync();
+                        }
+                        break;
+
+                    case ContextDestroyedEventArgs destroyed:
+                        if (_contextMap.Remove(destroyed.Context, out var destroyedVm))
+                        {
+                            await destroyedVm.DisposeAsync();
+                            await Dispatcher.UIThread.InvokeAsync(() => Contexts.Remove(destroyedVm));
+                            ContextDestroyed?.Invoke(destroyedVm);
+                        }
+                        break;
+
+                    case BeforeRequestSentEventArgs req:
+                        if (req.Context is not null && _contextMap.TryGetValue(req.Context, out var reqVm))
+                            await reqVm.NetworkViewModel.AddRequestAsync(req, _networkDataCollector!);
+                        break;
+
+                    case ResponseCompletedEventArgs res:
+                        if (res.Context is not null && _contextMap.TryGetValue(res.Context, out var resVm))
+                            await resVm.NetworkViewModel.UpdateResponseAsync(res);
+                        break;
+                }
+            });
     }
 
     [ObservableProperty]
@@ -311,51 +392,86 @@ public partial class BrowserViewModel(MainWindowViewModel mainWindowViewModel, T
 
     private async Task EmulationScenarioAsync()
     {
-        var context = await StartBrowserCore();
-        if (context == null)
+        UserContext? userContext = null;
+        BrowsingContext context;
+
+        if (IsIsolated)
         {
-            throw new InvalidOperationException("Failed to create browser context");
+            userContext = (await _bidi!.Browser.CreateUserContextAsync()).UserContext;
+
+            context = (await _bidi!.BrowsingContext.CreateAsync(ContextType.Window, new() { UserContext = userContext })).Context;
         }
-        await context.NavigateAsync("https://nuget.org", new() { Wait = ReadinessState.Complete });
+        else
+        {
+            context = (await _bidi!.BrowsingContext.CreateAsync(ContextType.Window)).Context;
+        }
+
+        if (_webDriver is OpenQA.Selenium.Chrome.ChromeDriver || _webDriver is OpenQA.Selenium.Edge.EdgeDriver)
+        {
+            // Workaround to perform actions fast
+            var cdp = await context.AsCdpAsync();
+#pragma warning disable BIDICDP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            await cdp.Emulation.SetFocusEmulationEnabledAsync(true);
+#pragma warning restore BIDICDP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+        }
+
+        await context.NavigateAsync("https://nuget.org", new()
+        {
+            Wait = ReadinessState.Complete,
+            Timeout = TimeSpan.FromSeconds(90)
+        });
+
         var inputNode = (await context.LocateNodesAsync(new CssLocator("[name='q']"))).Nodes[0];
 
-        await context.Input.PerformActionsAsync([
-            new OpenQA.Selenium.BiDi.Input.PointerActions("pointer"){
-                new OpenQA.Selenium.BiDi.Input.PointerMoveAction(0, 0) { Origin = new OpenQA.Selenium.BiDi.Input.ElementOrigin(inputNode)},
-                new OpenQA.Selenium.BiDi.Input.PointerDownAction(0),
-                new OpenQA.Selenium.BiDi.Input.PointerUpAction(0)
-            }
-        ]);
+        await context.Script.CallFunctionAsync("el => el.focus()", true, new() { Arguments = [new SharedReferenceLocalValue(inputNode.SharedId)] });
 
         await context.Input.PerformActionsAsync([
-            new OpenQA.Selenium.BiDi.Input.KeyActions("keyboard")
-                .Type("Selenium")
+            new KeySourceActions(
+                "keyboard",
+                [.. "Selenium".SelectMany<char, IKeySourceAction>(c => [new KeyDownAction(c), new KeyUpAction(c)])])
         ]);
 
         var searchButton = (await context.LocateNodesAsync(new CssLocator("button.btn-search"))).Nodes[0];
 
-        var pageLoadedTaskCompletionSource = new TaskCompletionSource<bool>();
-
-        await using var _ = await context.OnDomContentLoadedAsync(e =>
-        {
-            if (e.Url.Contains("q=Selenium", StringComparison.OrdinalIgnoreCase))
-            {
-                pageLoadedTaskCompletionSource.TrySetResult(true);
-            }
-        });
+        await using var onLoadReader = await context.Load.StreamAsync();
 
         await context.Input.PerformActionsAsync([
-            new OpenQA.Selenium.BiDi.Input.PointerActions("pointer2"){
-                new OpenQA.Selenium.BiDi.Input.PointerMoveAction(0, 0) { Origin = new OpenQA.Selenium.BiDi.Input.ElementOrigin(searchButton)},
-                new OpenQA.Selenium.BiDi.Input.PointerDownAction(0),
-                new OpenQA.Selenium.BiDi.Input.PointerUpAction(0)
-            }
+            new PointerSourceActions("pointer2",
+            [
+                new PointerMoveAction(10, 10)
+                {
+                    Origin = new ElementOrigin(searchButton)
+                },
+                new PauseAction(){
+                    Duration = 300
+                },
+                new PointerDownAction(0),
+                new PauseAction(){
+                    Duration = 20
+                },
+                new PointerUpAction(0)
+            ])
         ]);
 
-        await pageLoadedTaskCompletionSource.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        await onLoadReader.ReadAllAsync().FirstAsync(e => e.Url.Contains("q=Selenium", StringComparison.OrdinalIgnoreCase)).AsTask().WaitAsync(TimeSpan.FromSeconds(60));
 
-        await Task.Delay(1_000);
+        var packages = await context.LocateNodesAsync(new CssLocator("a.package-title"));
+
+        foreach (var package in packages.Nodes)
+        {
+            var title = await context.Script.CallFunctionAsync<string>("el => el.textContent", true, new() { Arguments = [new SharedReferenceLocalValue(package.SharedId)] });
+
+            if (title?.Contains("Selenium", StringComparison.OrdinalIgnoreCase) == false)
+            {
+                throw new Exception($"Unexpected package title: {title}");
+            }
+        }
 
         await context.CloseAsync();
+        
+        if (userContext is not null)
+        {
+            await _bidi.Browser.RemoveUserContextAsync(userContext);
+        }
     }
 }

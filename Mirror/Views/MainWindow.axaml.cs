@@ -1,5 +1,7 @@
 using Avalonia.Controls;
-using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Threading;
 using Mirror.ViewModels;
 using System.Threading.Tasks;
 
@@ -7,73 +9,69 @@ namespace Mirror.Views;
 
 public partial class MainWindow : Window
 {
+    private bool _isClosing;
+
     public MainWindow()
     {
         InitializeComponent();
+        Loaded += OnLoaded;
     }
 
-    private void Border_Tapped(object? sender, TappedEventArgs e)
+    private async void OnLoaded(object? sender, RoutedEventArgs e)
     {
-        if (sender is Border border && border.DataContext is ContextViewModel context)
+        var dashboard = new BrowserDashboardView();
+        var page = new ContentPage
         {
-            if (DataContext is MainWindowViewModel vm)
+            Content = dashboard,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Stretch
+        };
+        NavigationPage.SetHasNavigationBar(page, false);
+        await NavPage.PushAsync(page, null);
+
+        if (DataContext is MainWindowViewModel vm)
+        {
+            foreach (var browser in vm.Browsers)
             {
-                vm.NavigateToContextCommand.Execute(context);
+                browser.ContextDestroyed += OnContextDestroyed;
             }
         }
     }
 
-    private void CloseButton_Tapped(object? sender, TappedEventArgs e)
+    private void OnContextDestroyed(ContextViewModel context)
     {
-        e.Handled = true;
+        Dispatcher.UIThread.Post(async () =>
+        {
+            if (NavPage.StackDepth > 1
+                && NavPage.CurrentPage is ContentPage { Content: ContextPage { DataContext: ContextViewModel shown } }
+                && shown == context)
+            {
+                await NavPage.PopAsync();
+            }
+        });
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (DataContext is MainWindowViewModel vm)
+        if (_isClosing || DataContext is not MainWindowViewModel vm)
+            return;
+
+        e.Cancel = true;
+
+        _ = Task.Run(async () =>
         {
-            if (vm.CurrentView is ContextViewModel contextViewModel)
+            if (NavPage.StackDepth > 1 && NavPage.CurrentPage is ContentPage { Content: ContextPage { DataContext: ContextViewModel contextViewModel } })
             {
-                e.Cancel = true;
-
-                Task.Run(async () =>
-                {
-                    await contextViewModel.CloseContextCommand.ExecuteAsync(null);
-                }).GetAwaiter().GetResult();
-
-                vm.NavigateBackCommand.Execute(null);
+                await contextViewModel.CloseContextCommand.ExecuteAsync(null);
+                await Dispatcher.UIThread.InvokeAsync(async () => await NavPage.PopAsync());
+                return;
             }
-            else
-            {
-                // Execute async cleanup and then close
-                Task.Run(async () =>
-                {
-                    await Parallel.ForEachAsync(vm.Browsers, async (browser, ct) =>
-                    {
-                        await browser.StopBrowserCommand.ExecuteAsync(null);
-                    });
-                }).GetAwaiter().GetResult();
-            }
-        }
 
-        base.OnClosing(e);
-    }
+            await Parallel.ForEachAsync(vm.Browsers, async (browser, ct) =>
+                await browser.StopBrowserCommand.ExecuteAsync(null));
 
-    private void ButtonSpinner_Spin(object? sender, SpinEventArgs e)
-    {
-        var vm = DataContext as MainWindowViewModel;
-        if (vm?.CurrentBrowser == null) return;
-
-        if (e.Direction == SpinDirection.Increase)
-        {
-            vm.CurrentBrowser.EmulationThreads++;
-        }
-        else
-        {
-            if (vm.CurrentBrowser.EmulationThreads != 1)
-            {
-                vm.CurrentBrowser.EmulationThreads--;
-            }
-        }
+            _isClosing = true;
+            await Dispatcher.UIThread.InvokeAsync(Close);
+        });
     }
 }

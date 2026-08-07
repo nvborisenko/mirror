@@ -5,6 +5,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using Mirror.ViewModels;
 using Mirror.Views;
 
@@ -19,11 +20,19 @@ namespace Mirror
 
         public override void OnFrameworkInitializationCompleted()
         {
+            Dispatcher.UIThread.UnhandledException += async (sender, e) =>
+            {
+                e.Handled = true;
+                var owner = (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+                var dialog = new ExceptionDialog(e.Exception);
+                if (owner is not null)
+                    await dialog.ShowDialog(owner);
+                else
+                    dialog.Show();
+            };
+
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
-                // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
-                // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
-                DisableAvaloniaDataAnnotationValidation();
                 desktop.MainWindow = new MainWindow
                 {
                     DataContext = new MainWindowViewModel(),
@@ -33,18 +42,6 @@ namespace Mirror
             base.OnFrameworkInitializationCompleted();
         }
 
-        [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access", Justification = "DataValidators is accessed for Avalonia validation management")]
-        private void DisableAvaloniaDataAnnotationValidation()
-        {
-            // Get an array of plugins to remove
-            var dataValidationPluginsToRemove =
-                BindingPlugins.DataValidators.OfType<DataAnnotationsValidationPlugin>().ToArray();
-
-            // remove each entry found
-            foreach (var plugin in dataValidationPluginsToRemove)
-            {
-                BindingPlugins.DataValidators.Remove(plugin);
-            }
-        }
+        // DisableAvaloniaDataAnnotationValidation no longer needed in Avalonia 12 (BindingPlugins is internal)
     }
 }

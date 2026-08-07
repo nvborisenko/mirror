@@ -1,0 +1,47 @@
+<Window xmlns="https://github.com/avaloniaui"
+		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+		x:Class="Mirror.Views.ExceptionDialog"
+		Title="Unhandled Exception"
+		Width="640" Height="420"
+		MinWidth="400" MinHeight="280"
+		WindowStartupLocation="CenterOwner"
+		CanResize="True"
+		ShowInTaskbar="False">
+
+	<Grid RowDefinitions="Auto,*,Auto" Margin="16">
+
+		<TextBlock x:Name="MessageText"
+				   Grid.Row="0"
+				   TextWrapping="Wrap"
+				   FontWeight="SemiBold"
+				   Margin="0,0,0,10"/>
+
+		<Border Grid.Row="1"
+				BorderThickness="1"
+				BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+				CornerRadius="4">
+			<ScrollViewer VerticalScrollBarVisibility="Auto"
+						  HorizontalScrollBarVisibility="Auto">
+				<TextBlock x:Name="StackTraceText"
+						   FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+						   FontSize="11"
+						   TextWrapping="NoWrap"
+						   Margin="8"/>
+			</ScrollViewer>
+		</Border>
+
+		<StackPanel Grid.Row="2"
+					Orientation="Horizontal"
+					HorizontalAlignment="Right"
+					Spacing="8"
+					Margin="0,12,0,0">
+			<Button x:Name="CopyButton"
+					Content="Copy to Clipboard"
+					Click="CopyButton_Click"/>
+			<Button Content="Close"
+					Classes="accent"
+					Click="CloseButton_Click"/>
+		</StackPanel>
+
+	</Grid>
+</Window>

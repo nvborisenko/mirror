@@ -15,11 +15,13 @@
 		</StackPanel>
 
 		<ScrollViewer Grid.Row="1">
-			<ItemsRepeater ItemsSource="{Binding Requests}">
-				<ItemsRepeater.Layout>
-					<StackLayout />
-				</ItemsRepeater.Layout>
-				<ItemsRepeater.ItemTemplate>
+			<ItemsControl ItemsSource="{Binding Requests}">
+				<ItemsControl.ItemsPanel>
+					<ItemsPanelTemplate>
+						<StackPanel />
+					</ItemsPanelTemplate>
+				</ItemsControl.ItemsPanel>
+				<ItemsControl.ItemTemplate>
 					<DataTemplate x:DataType="vm:NetworkRequestViewModel">
 						<Border BorderThickness="0" Background="Transparent" Margin="0,1">
 							<Expander HorizontalAlignment="Stretch" IsExpanded="{Binding IsExpanded}">
@@ -172,8 +174,8 @@
 							</Expander>
 						</Border>
 					</DataTemplate>
-				</ItemsRepeater.ItemTemplate>
-			</ItemsRepeater>
+				</ItemsControl.ItemTemplate>
+			</ItemsControl>
 		</ScrollViewer>
 
 		<StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left" Margin="10" Spacing="10">

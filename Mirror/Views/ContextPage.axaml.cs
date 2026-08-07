@@ -1,5 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Mirror.ViewModels;
 using OpenQA.Selenium.BiDi.BrowsingContext;
 using OpenQA.Selenium.BiDi.Input;
@@ -15,6 +18,32 @@ public partial class ContextPage : UserControl
     public ContextPage()
     {
         InitializeComponent();
+
+        AttachedToVisualTree += (_, _) =>
+        {
+            if (VisualRoot is Window window)
+            {
+                var topInset = window.OffScreenMargin.Top + window.WindowDecorationMargin.Top;
+                HeaderBackground.Margin = new Thickness(0, -topInset, 0, 0);
+                HeaderBackground.Padding = new Thickness(0, topInset, 0, 0);
+            }
+
+            if (DataContext is ContextViewModel vm)
+                vm.StartScreenCapture();
+        };
+
+        DetachedFromVisualTree += (_, _) =>
+        {
+            if (DataContext is ContextViewModel vm)
+                _ = vm.StopScreenCaptureAsync();
+        };
+    }
+
+    private async void OnBackButtonClick(object? sender, RoutedEventArgs e)
+    {
+        var nav = this.FindAncestorOfType<NavigationPage>();
+        if (nav is not null && nav.StackDepth > 1)
+            await nav.PopAsync();
     }
 
     private async void OnImagePointerMoved(object? sender, PointerEventArgs e)
@@ -35,9 +64,10 @@ public partial class ContextPage : UserControl
 
             var vm = this.DataContext as ContextViewModel;
 
-            await vm!.Context.Input.PerformActionsAsync([new PointerActions("mirror-pointer"){
+            await vm!.Context.Input.PerformActionsAsync([new PointerSourceActions("mirror-pointer",
+            [
                 new PointerMoveAction((int)position.X, (int)position.Y)
-            }]);
+            ])]);
         }
     }
 
@@ -57,10 +87,11 @@ public partial class ContextPage : UserControl
             var position = e.GetPosition(image);
             var vm = this.DataContext as ContextViewModel;
 
-            await vm!.Context.Input.PerformActionsAsync([new PointerActions("mirror-pointer"){
+            await vm!.Context.Input.PerformActionsAsync([new PointerSourceActions("mirror-pointer",
+            [
                 new PointerMoveAction((int)position.X, (int)position.Y),
                 new PointerDownAction(0)
-            }]);
+            ])]);
 
             Size.Text = "Pressed";
         }
@@ -73,10 +104,11 @@ public partial class ContextPage : UserControl
             var position = e.GetPosition(image);
             var vm = this.DataContext as ContextViewModel;
 
-            await vm!.Context.Input.PerformActionsAsync([new PointerActions("mirror-pointer"){
+            await vm!.Context.Input.PerformActionsAsync([new PointerSourceActions("mirror-pointer",
+            [
                 new PointerMoveAction((int)position.X, (int)position.Y),
                 new PointerUpAction(0)
-            }]);
+            ])]);
 
             await vm!.Context.Input.ReleaseActionsAsync();
 
@@ -92,9 +124,10 @@ public partial class ContextPage : UserControl
             var vm = this.DataContext as ContextViewModel;
             var delta = e.Delta;
 
-            await vm!.Context.Input.PerformActionsAsync([new WheelActions("mirror-wheel"){
+            await vm!.Context.Input.PerformActionsAsync([new WheelSourceActions("mirror-wheel",
+            [
                 new WheelScrollAction((int)position.X, (int)position.Y, -(int)(delta.X * 100), -(int)(delta.Y * 100))
-            }]);
+            ])]);
         }
     }
 
@@ -107,9 +140,10 @@ public partial class ContextPage : UserControl
 
         var key = e.KeySymbol[0];
 
-        await vm!.Context.Input.PerformActionsAsync([new KeyActions("mirror-keyboard"){
+        await vm!.Context.Input.PerformActionsAsync([new KeySourceActions("mirror-keyboard",
+        [
             new KeyDownAction(key)
-        }]);
+        ])]);
     }
 
     private async void OnImageKeyUp(object? sender, KeyEventArgs e)
@@ -121,9 +155,10 @@ public partial class ContextPage : UserControl
 
         var key = e.KeySymbol[0];
 
-        await vm!.Context.Input.PerformActionsAsync([new KeyActions("mirror-keyboard"){
+        await vm!.Context.Input.PerformActionsAsync([new KeySourceActions("mirror-keyboard",
+        [
             new KeyUpAction(key)
-        }]);
+        ])]);
 
         await vm!.Context.Input.ReleaseActionsAsync();
     }

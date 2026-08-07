@@ -7,79 +7,143 @@ using OpenQA.Selenium.BiDi.Network;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace Mirror.ViewModels;
 
-public partial class NetworkViewModel(BrowsingContext context) : ViewModelBase, IAsyncDisposable
+public partial class NetworkViewModel : ViewModelBase, IAsyncDisposable
 {
-    private Collector? _networkDataCollector = null!;
+    private readonly BrowsingContext _context;
 
-    private Subscription? _onBeforeRequestSubscription;
-    private Subscription? _onResponseCompletedSubscription;
-    public async Task InitializeAsync()
+    private const int SampleCount = 60;
+    private readonly int[] _rawSamples = new int[SampleCount];
+    private int _writeIndex = 0;
+    private int _pendingCount = 0;
+
+    // Shared single timer for all instances
+    private static DispatcherTimer? s_sharedTimer;
+    private static readonly List<WeakReference<NetworkViewModel>> s_instances = [];
+
+    private static void EnsureSharedTimer()
     {
-        var dataCollectorResult = await context.BiDi.Network.AddDataCollectorAsync([DataType.Request, DataType.Response], 300_000, new() { Contexts = [context] });
-        _networkDataCollector = dataCollectorResult.Collector;
+        if (s_sharedTimer is not null) return;
 
-        _onBeforeRequestSubscription = await context.Network.OnBeforeRequestSentAsync(async e =>
+        Dispatcher.UIThread.VerifyAccess();
+        s_sharedTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        s_sharedTimer.Tick += static (_, _) =>
         {
-            var requestViewModel = new NetworkRequestViewModel(e, _networkDataCollector);
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            lock (s_instances)
             {
-                Requests.Add(requestViewModel);
-            });
-        });
-
-        _onResponseCompletedSubscription = await context.Network.OnResponseCompletedAsync(async e =>
-        {
-            var requestViewModel = Requests.FirstOrDefault(r => r.Request.Id == e.Request.Request.Id);
-
-            if (requestViewModel != null)
-            {
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                for (int i = s_instances.Count - 1; i >= 0; i--)
                 {
-                    requestViewModel.Status = e.Response.Status.ToString();
-                    requestViewModel.Duration = TimeSpan.FromMilliseconds(e.Request.Timings.ResponseEnd - e.Request.Timings.RequestStart);
-                    requestViewModel.ResponseHeaders = [.. e.Response.Headers.Select(h => new HeaderModel(h.Name, (string)h.Value))];
-                });
+                    if (s_instances[i].TryGetTarget(out var vm))
+                        vm.OnSampleTimerTick();
+                    else
+                        s_instances.RemoveAt(i);
+                }
+            }
+        };
+        s_sharedTimer.Start();
+    }
+
+    [ObservableProperty]
+    private double[] _activitySamples = new double[SampleCount];
+
+    public NetworkViewModel(BrowsingContext context)
+    {
+        _context = context;
+        Dispatcher.UIThread.Post(() =>
+        {
+            EnsureSharedTimer();
+            lock (s_instances)
+                s_instances.Add(new WeakReference<NetworkViewModel>(this));
+        });
+    }
+
+    private bool _hasActivity;
+
+    private void OnSampleTimerTick()
+    {
+        var count = _pendingCount;
+        _pendingCount = 0;
+
+        _rawSamples[_writeIndex] = count;
+        _writeIndex = (_writeIndex + 1) % SampleCount;
+
+        if (count > 0)
+            _hasActivity = true;
+
+        // Skip re-render only when entire buffer is zero
+        if (!_hasActivity)
+            return;
+
+        var result = new double[SampleCount];
+        bool anyNonZero = false;
+        for (int i = 0; i < SampleCount; i++)
+        {
+            result[i] = _rawSamples[(_writeIndex + i) % SampleCount];
+            if (result[i] > 0) anyNonZero = true;
+        }
+
+        _hasActivity = anyNonZero;
+        ActivitySamples = result;
+    }
+
+    public ObservableCollection<NetworkRequestViewModel> Requests { get; } = [];
+    private readonly Dictionary<Request, NetworkRequestViewModel> _requestMap = [];
+
+    public async Task AddRequestAsync(BeforeRequestSentEventArgs e, Collector collector)
+    {
+        var requestViewModel = new NetworkRequestViewModel(e, collector);
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _pendingCount++;
+            _requestMap[requestViewModel.Request] = requestViewModel;
+            Requests.Add(requestViewModel);
+        });
+    }
+
+    public async Task UpdateResponseAsync(ResponseCompletedEventArgs e)
+    {
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (_requestMap.TryGetValue(e.Request.Request, out var requestViewModel))
+            {
+                requestViewModel.Status = e.Response.Status.ToString();
+                requestViewModel.Duration = TimeSpan.FromMilliseconds(e.Request.Timings.ResponseEnd - e.Request.Timings.RequestStart);
+                requestViewModel.ResponseHeaders = [.. e.Response.Headers.Select(h => new HeaderModel(h.Name, (string)h.Value))];
             }
         });
     }
 
-    public ObservableCollection<NetworkRequestViewModel> Requests { get; } = [];
-
     [RelayCommand]
     public void ClearRequests()
     {
+        _requestMap.Clear();
         Requests.Clear();
     }
 
     [RelayCommand]
     public async Task ChangeCache(bool disabled)
     {
-        await context.Network.SetCacheBehaviorAsync(disabled ? OpenQA.Selenium.BiDi.Network.CacheBehavior.Bypass : OpenQA.Selenium.BiDi.Network.CacheBehavior.Default);
+        await _context.Network.SetCacheBehaviorAsync(disabled ? OpenQA.Selenium.BiDi.Network.CacheBehavior.Bypass : OpenQA.Selenium.BiDi.Network.CacheBehavior.Default);
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (_onBeforeRequestSubscription is not null)
+        lock (s_instances)
         {
-            await _onBeforeRequestSubscription.DisposeAsync();
+            for (int i = s_instances.Count - 1; i >= 0; i--)
+            {
+                if (!s_instances[i].TryGetTarget(out var vm) || vm == this)
+                    s_instances.RemoveAt(i);
+            }
         }
-
-        if (_onResponseCompletedSubscription is not null)
-        {
-            await _onResponseCompletedSubscription.DisposeAsync();
-        }
-
-        if (_networkDataCollector is not null)
-        {
-            await _networkDataCollector.BiDi.Network.RemoveDataCollectorAsync(_networkDataCollector);
-        }
+        _requestMap.Clear();
+        Requests.Clear();
+        return ValueTask.CompletedTask;
     }
 }
 
