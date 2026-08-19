@@ -418,8 +418,7 @@ public partial class BrowserViewModel(Type type, string logoPath) : ViewModelBas
         await context.NavigateAsync("https://nuget.org", new()
         {
             Wait = ReadinessState.Complete,
-            Timeout = TimeSpan.FromSeconds(90)
-        });
+        }).WaitAsync(TimeSpan.FromSeconds(90));
 
         var inputNode = (await context.LocateNodesAsync(new CssLocator("[name='q']"))).Nodes[0];
 
