@@ -122,7 +122,7 @@ public partial class BrowserDashboardView : UserControl
         if (border.DataContext is ContextViewModel newVm)
         {
             border.Tag = newVm;
-            newVm.StartScreenCapture();
+            _ = newVm.StartScreenCaptureAsync();
         }
         else
         {

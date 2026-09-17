@@ -29,7 +29,7 @@ public partial class ContextPage : UserControl
             }
 
             if (DataContext is ContextViewModel vm)
-                vm.StartScreenCapture();
+                _ = vm.StartScreenCaptureAsync();
         };
 
         DetachedFromVisualTree += (_, _) =>

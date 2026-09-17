@@ -35,6 +35,8 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
 
     private CdpModule? _cdp;
     private ISubscription? _screencastFrameSubscription;
+    private readonly SemaphoreSlim _screenCaptureLock = new(1, 1);
+    private int _screenCaptureUsers;
 
     const string DefaultTitle = "New Tab";
 
@@ -53,43 +55,69 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
 
     public void RequestCapture() => _captureChannel.Writer.TryWrite(0);
 
-    public void StartScreenCapture()
+    public async Task StartScreenCaptureAsync()
     {
-        if (_screenshotCts is not null) return;
+        await _screenCaptureLock.WaitAsync();
+        try
+        {
+            _screenCaptureUsers++;
+            if (_screenshotCts is not null) return;
 
-        _screenshotCts = new CancellationTokenSource();
+            _screenshotCts = new CancellationTokenSource();
 
-        _screenshotTask = _useCdpScreencast
-            ? Task.Run(() => CdpScreenCaptureAsync(_screenshotCts.Token))
-            : Task.Run(() => ScreenCaptureLoopAsync(_screenshotCts.Token));
+            _screenshotTask = _useCdpScreencast
+                ? Task.Run(() => CdpScreenCaptureAsync(_screenshotCts.Token))
+                : Task.Run(() => ScreenCaptureLoopAsync(_screenshotCts.Token));
+        }
+        finally
+        {
+            _screenCaptureLock.Release();
+        }
     }
 
-    public async Task StopScreenCaptureAsync()
+    public async Task StopScreenCaptureAsync(bool force = false)
     {
-        if (_screenshotCts is null) return;
-
-        await _screenshotCts.CancelAsync();
-        _screenshotCts.Dispose();
-        _screenshotCts = null;
-
-        if (_screenshotTask is not null)
+        await _screenCaptureLock.WaitAsync();
+        try
         {
-            try { await _screenshotTask.ConfigureAwait(false); } catch { }
-            _screenshotTask = null;
-        }
+            if (force)
+            {
+                _screenCaptureUsers = 0;
+            }
+            else if (_screenCaptureUsers == 0 || --_screenCaptureUsers > 0)
+            {
+                return;
+            }
 
-        if (_screencastFrameSubscription is not null)
-        {
-            await _screencastFrameSubscription.DisposeAsync();
-            _screencastFrameSubscription = null;
-        }
+            if (_screenshotCts is null) return;
 
-        if (_cdp is not null)
-        {
+            await _screenshotCts.CancelAsync();
+            _screenshotCts.Dispose();
+            _screenshotCts = null;
+
+            if (_screenshotTask is not null)
+            {
+                try { await _screenshotTask.ConfigureAwait(false); } catch { }
+                _screenshotTask = null;
+            }
+
+            if (_screencastFrameSubscription is not null)
+            {
+                await _screencastFrameSubscription.DisposeAsync();
+                _screencastFrameSubscription = null;
+            }
+
+            if (_cdp is not null)
+            {
 #pragma warning disable BIDICDP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-            try { await _cdp.Page.StopScreencastAsync(); } catch { }
+                try { await _cdp.Page.StopScreencastAsync(); } catch { }
 #pragma warning restore BIDICDP001
-            _cdp = null;
+                _cdp = null;
+            }
+        }
+        finally
+        {
+            _screenCaptureLock.Release();
         }
     }
 
@@ -197,7 +225,7 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await StopScreenCaptureAsync();
+        await StopScreenCaptureAsync(force: true);
 
         if (_onLoadSubscription is not null)
         {
