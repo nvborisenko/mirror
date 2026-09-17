@@ -3,6 +3,8 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using OpenQA.Selenium.BiDi;
 using OpenQA.Selenium.BiDi.BrowsingContext;
+using Selenium.WebDriver.BiDi.Cdp;
+using Selenium.WebDriver.BiDi.Cdp.Page;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -15,10 +17,13 @@ namespace Mirror.ViewModels;
 
 public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
 {
-    public ContextViewModel(BrowsingContext context)
+    private readonly bool _useCdpScreencast;
+
+    public ContextViewModel(BrowsingContext context, bool useCdpScreencast = false)
     {
         Context = context;
         NetworkViewModel = new(context);
+        _useCdpScreencast = useCdpScreencast;
     }
 
     private CancellationTokenSource? _screenshotCts;
@@ -27,6 +32,9 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
     {
         FullMode = BoundedChannelFullMode.DropWrite
     });
+
+    private CdpModule? _cdp;
+    private ISubscription? _screencastFrameSubscription;
 
     const string DefaultTitle = "New Tab";
 
@@ -50,7 +58,10 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
         if (_screenshotCts is not null) return;
 
         _screenshotCts = new CancellationTokenSource();
-        _screenshotTask = Task.Run(() => ScreenCaptureLoopAsync(_screenshotCts.Token));
+
+        _screenshotTask = _useCdpScreencast
+            ? Task.Run(() => CdpScreenCaptureAsync(_screenshotCts.Token))
+            : Task.Run(() => ScreenCaptureLoopAsync(_screenshotCts.Token));
     }
 
     public async Task StopScreenCaptureAsync()
@@ -66,7 +77,64 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
             try { await _screenshotTask.ConfigureAwait(false); } catch { }
             _screenshotTask = null;
         }
+
+        if (_screencastFrameSubscription is not null)
+        {
+            await _screencastFrameSubscription.DisposeAsync();
+            _screencastFrameSubscription = null;
+        }
+
+        if (_cdp is not null)
+        {
+#pragma warning disable BIDICDP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            try { await _cdp.Page.StopScreencastAsync(); } catch { }
+#pragma warning restore BIDICDP001
+            _cdp = null;
+        }
     }
+
+#pragma warning disable BIDICDP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+    private async Task CdpScreenCaptureAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            _cdp = await Context.AsCdpAsync();
+
+            _screencastFrameSubscription = await _cdp.Page.ScreencastFrame.SubscribeAsync(async e =>
+            {
+                try
+                {
+                    var bytes = Convert.FromBase64String(e.Data);
+                    using var ms = new MemoryStream(bytes);
+                    var bitmap = new Bitmap(ms);
+
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        var oldScreenshot = Screenshot;
+                        Screenshot = bitmap;
+                        oldScreenshot?.Dispose();
+                    }, DispatcherPriority.Background);
+                }
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // Ignore malformed/late frames
+                }
+                finally
+                {
+                    try { await _cdp.Page.ScreencastFrameAckAsync(e.SessionId); } catch { }
+                }
+            }, cancellationToken);
+
+            await _cdp.Page.StartScreencastAsync(
+                format: StartScreencastFormat.Jpeg,
+                quality: (long)(ScreenshotQuality * 100));
+        }
+        catch (Exception) when (cancellationToken.IsCancellationRequested)
+        {
+            // Ignore exceptions during shutdown
+        }
+    }
+#pragma warning restore BIDICDP001
 
     private async Task ScreenCaptureLoopAsync(CancellationToken cancellationToken)
     {

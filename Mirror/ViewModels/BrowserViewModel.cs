@@ -36,6 +36,9 @@ public partial class BrowserViewModel(Type type, string logoPath) : ViewModelBas
 
     public Bitmap LogoPath { get; } = new(AssetLoader.Open(new Uri(logoPath)));
 
+    // Chromium-based browsers screencast via CDP; Firefox uses the BiDi preload-script approach.
+    private bool IsChromium => type == typeof(OpenQA.Selenium.Chrome.ChromeDriver) || type == typeof(OpenQA.Selenium.Edge.EdgeDriver);
+
     public ObservableCollection<ContextViewModel> Contexts { get; } = [];
     private readonly Dictionary<BrowsingContext, ContextViewModel> _contextMap = [];
 
@@ -153,13 +156,16 @@ public partial class BrowserViewModel(Type type, string logoPath) : ViewModelBas
 
                     createdContext = (await _bidi.BrowsingContext.GetTreeAsync()).Contexts[0].Context;
 
-                    var firstContext = new ContextViewModel(createdContext);
+                    var firstContext = new ContextViewModel(createdContext, IsChromium);
 
                     await firstContext.InitializeAsync();
 
-                    // Inject screencast script into the first context (preload script only applies to future navigations)
-                    var channelArg = new ChannelLocalValue(new ChannelProperties(_screencastChannel!));
-                    await createdContext.Script.CallFunctionAsync(ScreencastScript, false, new CallFunctionOptions { Arguments = [channelArg] });
+                    if (!IsChromium)
+                    {
+                        // Inject screencast script into the first context (preload script only applies to future navigations)
+                        var channelArg = new ChannelLocalValue(new ChannelProperties(_screencastChannel!));
+                        await createdContext.Script.CallFunctionAsync(ScreencastScript, false, new CallFunctionOptions { Arguments = [channelArg] });
+                    }
 
                     _contextMap[createdContext] = firstContext;
 
@@ -295,32 +301,35 @@ public partial class BrowserViewModel(Type type, string logoPath) : ViewModelBas
         var dataCollectorResult = await _bidi!.Network.AddDataCollectorAsync([DataType.Request, DataType.Response], 300_000);
         _networkDataCollector = dataCollectorResult.Collector;
 
-        // Install global screencast preload script
-        _screencastChannel = new Channel(_bidi, "mirror-screencast");
-        var channelArg = new ChannelLocalValue(new ChannelProperties(_screencastChannel));
-
-        var preloadResult = await _bidi.Script.AddPreloadScriptAsync(
-            ScreencastScript,
-            new AddPreloadScriptOptions { Arguments = [channelArg] });
-        _preloadScript = preloadResult.Script;
-
-        // Subscribe to script.message globally and dispatch to contexts
-        _messageStream = await _bidi.Script.Message.StreamAsync();
-        _messageDispatchTask = Task.Run(async () =>
+        if (!IsChromium)
         {
-            try
+            // Install global screencast preload script (Firefox only; Chromium uses CDP screencast instead)
+            _screencastChannel = new Channel(_bidi, "mirror-screencast");
+            var channelArg = new ChannelLocalValue(new ChannelProperties(_screencastChannel));
+
+            var preloadResult = await _bidi.Script.AddPreloadScriptAsync(
+                ScreencastScript,
+                new AddPreloadScriptOptions { Arguments = [channelArg] });
+            _preloadScript = preloadResult.Script;
+
+            // Subscribe to script.message globally and dispatch to contexts
+            _messageStream = await _bidi.Script.Message.StreamAsync();
+            _messageDispatchTask = Task.Run(async () =>
             {
-                await foreach (var msg in _messageStream.ReadAllAsync())
+                try
                 {
-                    if (msg.Channel.Id != _screencastChannel!.Id) continue;
-                    if (msg.Source.Context is not null && _contextMap.TryGetValue(msg.Source.Context, out var vm))
+                    await foreach (var msg in _messageStream.ReadAllAsync())
                     {
-                        vm.RequestCapture();
+                        if (msg.Channel.Id != _screencastChannel!.Id) continue;
+                        if (msg.Source.Context is not null && _contextMap.TryGetValue(msg.Source.Context, out var vm))
+                        {
+                            vm.RequestCapture();
+                        }
                     }
                 }
-            }
-            catch { }
-        });
+                catch { }
+            });
+        }
 
         _subscription = await _bidi.SubscribeAsync<OpenQA.Selenium.BiDi.EventArgs>(
             [
@@ -336,7 +345,7 @@ public partial class BrowserViewModel(Type type, string logoPath) : ViewModelBas
                     case ContextCreatedEventArgs created:
                         if (created.Parent is null && !_contextMap.ContainsKey(created.Context))
                         {
-                            var vm = new ContextViewModel(created.Context);
+                            var vm = new ContextViewModel(created.Context, IsChromium);
                             _contextMap[created.Context] = vm;
                             await Dispatcher.UIThread.InvokeAsync(() => Contexts.Add(vm));
                             await vm.InitializeAsync();
