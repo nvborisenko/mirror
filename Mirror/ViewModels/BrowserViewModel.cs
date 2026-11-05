@@ -408,11 +408,11 @@ public partial class BrowserViewModel(Type type, string logoPath) : ViewModelBas
         {
             userContext = (await _bidi!.Browser.CreateUserContextAsync()).UserContext;
 
-            context = (await _bidi!.BrowsingContext.CreateAsync(ContextType.Window, new() { UserContext = userContext })).Context;
+            context = (await _bidi!.BrowsingContext.CreateAsync(ContextType.Tab, new() { UserContext = userContext })).Context;
         }
         else
         {
-            context = (await _bidi!.BrowsingContext.CreateAsync(ContextType.Window)).Context;
+            context = (await _bidi!.BrowsingContext.CreateAsync(ContextType.Tab)).Context;
         }
 
         if (_webDriver is OpenQA.Selenium.Chrome.ChromeDriver || _webDriver is OpenQA.Selenium.Edge.EdgeDriver)
@@ -436,7 +436,7 @@ public partial class BrowserViewModel(Type type, string logoPath) : ViewModelBas
         await context.Input.PerformActionsAsync([
             new KeySourceActions(
                 "keyboard",
-                [.. "Selenium".SelectMany<char, IKeySourceAction>(c => [new KeyDownAction(c), new KeyUpAction(c)])])
+                [.. "Mirror".SelectMany<char, IKeySourceAction>(c => [new KeyDownAction(c), new KeyUpAction(c)])])
         ]);
 
         var searchButton = (await context.LocateNodesAsync(new CssLocator("button.btn-search"))).Nodes[0];
@@ -461,7 +461,7 @@ public partial class BrowserViewModel(Type type, string logoPath) : ViewModelBas
             ])
         ]);
 
-        await onLoadReader.ReadAllAsync().FirstAsync(e => e.Url.Contains("q=Selenium", StringComparison.OrdinalIgnoreCase)).AsTask().WaitAsync(TimeSpan.FromSeconds(60));
+        await onLoadReader.ReadAllAsync().FirstAsync(e => e.Url.Contains("q=Mirror", StringComparison.OrdinalIgnoreCase)).AsTask().WaitAsync(TimeSpan.FromSeconds(60));
 
         var packages = await context.LocateNodesAsync(new CssLocator("a.package-title"));
 
@@ -469,7 +469,7 @@ public partial class BrowserViewModel(Type type, string logoPath) : ViewModelBas
         {
             var title = await context.Script.CallFunctionAsync<string>("el => el.textContent", true, new() { Arguments = [new SharedReferenceLocalValue(package.SharedId)] });
 
-            if (title?.Contains("Selenium", StringComparison.OrdinalIgnoreCase) == false)
+            if (title?.Contains("Mirror", StringComparison.OrdinalIgnoreCase) == false)
             {
                 throw new Exception($"Unexpected package title: {title}");
             }
