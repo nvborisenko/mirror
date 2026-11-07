@@ -46,6 +46,15 @@ public partial class ContextPage : UserControl
             await nav.PopAsync();
     }
 
+    private void OnAddressBarKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && DataContext is ContextViewModel vm)
+        {
+            vm.NavigateCommand.Execute(vm.AddressBarUrl);
+            e.Handled = true;
+        }
+    }
+
     private async void OnImagePointerMoved(object? sender, PointerEventArgs e)
     {
         if (sender is Image image)

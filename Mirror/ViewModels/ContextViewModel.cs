@@ -49,6 +49,10 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
     [ObservableProperty]
     private string _title = DefaultTitle;
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(NavigateCommand))]
+    private string _addressBarUrl = string.Empty;
+
     private ISubscription? _onLoadSubscription;
 
     public Task InitializeAsync() => Task.CompletedTask;
@@ -209,10 +213,31 @@ public partial class ContextViewModel : ViewModelBase, IAsyncDisposable
 
     public BrowsingContext Context { get; }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanNavigate))]
     public async Task Navigate(string url)
     {
         await Context.NavigateAsync(url);
+        AddressBarUrl = url;
+    }
+
+    private static bool CanNavigate(string url) => !string.IsNullOrWhiteSpace(url);
+
+    [RelayCommand]
+    private Task GoBack()
+    {
+        return Context.TraverseHistoryAsync(-1);
+    }
+
+    [RelayCommand]
+    private Task GoForward()
+    {
+        return Context.TraverseHistoryAsync(1);
+    }
+
+    [RelayCommand]
+    private Task Reload()
+    {
+        return Context.ReloadAsync();
     }
 
     [RelayCommand]
