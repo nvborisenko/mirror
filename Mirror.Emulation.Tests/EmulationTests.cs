@@ -28,6 +28,7 @@ public class EmulationTests
     [Arguments(30)]
     [Arguments(40)]
     [Arguments(50)]
+    [Arguments(100)]
     public async Task SearchNuGet(int parallel, CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
