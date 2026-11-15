@@ -19,6 +19,7 @@ jobs:
 
     env:
       EMULATION_BROWSER: ${{ matrix.browser }}
+      TUNIT_OTEL_MAX_EXTERNAL_SPANS: '10000'
 
     steps:
       - name: Checkout code
