@@ -45,9 +45,11 @@ public class EmulationTests
 
         var failed = tasks.Where(t => !t.IsCompletedSuccessfully).ToArray();
         var stats = tasks.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
+        var requests = stats.Sum(s => s.Requests);
+        var responses = stats.Sum(s => s.Responses);
 
         Console.WriteLine($"[{Browser.Browser} {Browser.BrowserVersion}] parallel={parallel}: duration={sw.Elapsed.TotalSeconds:F1}s, " +
-            $"succeeded={stats.Length}, failed={failed.Length}, requests={stats.Sum(s => s.Requests)}, responses={stats.Sum(s => s.Responses)}");
+            $"succeeded={stats.Length}, failed={failed.Length}, requests={requests}, responses={responses}");
 
         if (failed.Length > 0)
         {

@@ -37,7 +37,4 @@ jobs:
             core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL']);
 
       - name: Run emulation
-        run: >
-          dotnet test --project Mirror.Emulation.Tests -c Release
-          --output detailed
-          --report-html-filename emulation-${{ matrix.browser }}-report.html
+        run: dotnet test --project Mirror.Emulation.Tests -c Release --output detailed
